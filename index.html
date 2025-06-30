@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>RPCG</title> <!-- Changed title to RPCG -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" as="style">
+  <style>
+    /* Import Google Font Inter */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+    /* CSS variables for pastel colors and dark theme */
+    :root {
+      --background-dark: #0a0a0a;
+      --hud-background-dark: #1f1f1f;
+      --main-border-color: #AECAD2; /* Pastel blue for main border, used consistently */
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: var(--background-dark);
+      color: white;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      touch-action: none; /* Disable default touch actions like scrolling */
+      overflow: hidden; /* Hide overflow to prevent scrollbars */
+      width: 100vw; /* Occupy full viewport width */
+      height: 100vh; /* Occupy full viewport height */
+      justify-content: center;
+      position: relative;
+    }
+
+    /* Main game canvas now covers the entire screen */
+    canvas { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1; /* Lowest Z-index, as it's the primary drawing surface */
+      background-color: transparent; /* Background drawn by canvas itself */
+    }
+
+    #hud {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px; /* Small margin from top */
+      flex-wrap: wrap;
+      justify-content: center;
+      z-index: 5; /* HUD above canvas and menu */
+      position: absolute; /* Position above canvas */
+      top: 20px; /* Position from top */
+      width: 100%; /* Take full width to center items */
+    }
+
+    .hud-item {
+      font-size: 18px;
+      background: rgba(31, 31, 31, 0.9); /* Add transparency */
+      padding: 8px 15px;
+      border-radius: 8px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* Better contrast */
+      backdrop-filter: blur(5px); /* Frosted glass effect */
+      -webkit-backdrop-filter: blur(5px); /* For Safari */
+      border: 2px solid rgba(255, 255, 255, 0.15); /* Slightly thinner border for better aesthetics with transparency */
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+      transition: all 0.2s ease-out;
+    }
+
+    /* Class for HUD pulse animation */
+    .hud-item.animate-pulse {
+      animation: hudPulseFlat 0.3s ease-out forwards;
+    }
+
+    @keyframes hudPulseFlat {
+      0%, 100% { 
+          transform: scale(1);
+          background-color: var(--hud-background-dark); 
+          color: white;
+      }
+      50% { 
+          transform: scale(1.05); /* Slightly increased scale for more noticeable pulse */
+          background-color: #FFECB3; 
+          color: black;
+      }
+    }
+
+    /* Menu Styles (Start and Settings, and Pause) */
+    .game-menu {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 4;
+      background-color: rgba(0, 0, 0, 0.95);
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+
+    .game-menu.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .game-menu h1 {
+      font-size: clamp(2em, 8vw, 4em);
+      color: white;
+      margin-bottom: clamp(10px, 4vw, 30px);
+      text-shadow: none;
+    }
+
+    .menu-option-button {
+      padding: clamp(8px, 3vw, 16px) clamp(16px, 6vw, 32px); /* Optimized with clamp() */
+      font-size: clamp(14px, 4vw, 18px); /* Optimized with clamp() */
+      background-color: #C3F8B7;
+      color: #1a1a1a;
+      border: 6px solid var(--main-border-color); /* Increased border size and consistent color */
+      border-radius: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: bold;
+      text-shadow: none;
+      margin: 8px 0;
+      width: clamp(200px, 60vw, 300px);
+      max-width: 90%;
+    }
+
+    .menu-option-button:hover {
+      background-color: #AECAD2;
+      color: white;
+      border-color: #FFD1DC;
+      transform: scale(1.05);
+    }
+
+    .info-text {
+      text-align: center;
+      padding: 10px;
+      color: #aaa;
+      font-size: clamp(0.8em, 2vw, 1.1em);
+      text-shadow: none;
+      z-index: 5;
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+    }
+
+    /* Styles for settings options */
+    .settings-group {
+        margin-bottom: 25px;
+        color: #ddd;
+    }
+    .settings-group h2 {
+        font-size: clamp(1.2em, 5vw, 2.2em);
+        margin-bottom: 15px;
+        color: white;
+    }
+    .settings-options button {
+        background-color: var(--hud-background-dark);
+        color: white;
+        border: 4px solid rgba(255, 255, 255, 0.1); /* Increased border size */
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+        transition: all 0.2s ease;
+    }
+    .settings-options button:hover {
+        background-color: #555;
+    }
+    .settings-options button.active {
+        background-color: #C3F8B7; /* Active pastel green */
+        color: #1a1a1a;
+        border-color: var(--main-border-color); /* Consistent border color */
+    }
+
+    /* Adjustments for Settings Menu to allow scrolling */
+    #settingsMenu {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start; /* Align content to the top */
+      padding-top: 5vh; /* Add some padding at the top */
+      padding-bottom: 5vh; /* Add some padding at the bottom */
+      overflow-y: auto; /* Enable vertical scrolling */
+      max-height: 90vh; /* Restrict height to enable scrolling if content overflows */
+      box-sizing: border-box; /* Include padding in the height calculation */
+    }
+
+    /* Modal styles for custom alert */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 100; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background-color: #1f1f1f;
+        margin: auto;
+        padding: 30px;
+        border: 5px solid var(--main-border-color);
+        border-radius: 15px;
+        width: 80%;
+        max-width: 400px;
+        text-align: center;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .modal-content h2 {
+        color: white;
+        font-size: 1.8em;
+    }
+
+    .modal-content p {
+        color: #ddd;
+        font-size: 1.1em;
+        white-space: pre-wrap; /* Preserve new lines from alert content */
+    }
+
+    .modal-content button {
+        background-color: #C3F8B7;
+        color: #1a1a1a;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.1em;
+        font-weight: bold;
+        transition: background-color 0.2s ease;
+    }
+
+    .modal-content button:hover {
+        background-color: #AECAD2;
+        color: white;
+    }
+
+    /* New styles for score screen */
+    #scoreScreen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 4;
+        background-color: rgba(0, 0, 0, 0.95);
+        text-align: center;
+        transition: opacity 0.3s ease;
+    }
+
+    #scoreScreen.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #scoreScreen h1 {
+        font-size: clamp(2em, 8vw, 4em);
+        color: white;
+        margin-bottom: clamp(10px, 4vw, 30px);
+    }
+
+    #scoreScreen p {
+        font-size: clamp(1.2em, 5vw, 2em);
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+
+    #scoreScreen .menu-option-button {
+        margin-top: 20px;
+    }
+
+    /* Styles for intro animation text */
+    #introAnimationText {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: clamp(2em, 10vw, 5em);
+        color: white;
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+        opacity: 0;
+        z-index: 6; /* Above menus */
+        pointer-events: none;
+    }
+
+    /* Class to trigger intro animation */
+    #introAnimationText.animate-intro {
+        animation: fadeInOut 2s ease-out forwards;
+    }
+
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        50% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+    }
+
+    /* Orientation warning message */
+    #orientationWarning {
+        display: none; /* Hidden by default */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.95);
+        color: white;
+        font-size: clamp(1em, 5vw, 2em);
+        text-align: center;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        flex-direction: column;
+        padding: 20px;
+    }
+
+    @media screen and (orientation: landscape) and (max-height: 500px) { /* Adjust breakpoint as needed */
+        #orientationWarning {
+            display: flex;
+        }
+    }
+    @media screen and (orientation: portrait) and (max-width: 500px) { /* Adjust breakpoint as needed */
+        #orientationWarning {
+            display: none; /* Hide for portrait on small screens */
+        }
+    }
+
+  </style>
+</head>
+
+<body>
+  <div id="startMenu" class="game-menu">
+    <h1>RPCG</h1> <!-- Changed title to RPCG -->
+    <button id="playButton" class="menu-option-button">Jugar</button>
+    <button id="settingsButton" class="menu-option-button">Configuración</button>
+    <button id="aboutButton" class="menu-option-button">Acerca de</button>
+    <p style="color: #ccc; margin-top: 20px;">Presiona SPACE para jugar</p>
+  </div>
+
+  <div id="settingsMenu" class="game-menu hidden">
+    <h1>Configuración</h1>
+
+    <div class="settings-group">
+        <h2>Gráficos</h2>
+        <div class="settings-options">
+            <button id="graphicsLow">Baja</button>
+            <button id="graphicsMedium" class="active">Media</button>
+            <button id="graphicsHigh">Alta</button>
+        </div>
+    </div>
+
+    <div class="settings-group">
+        <h2>Dificultad</h2>
+        <div class="settings-options">
+            <button id="difficultyEasy">Fácil</button>
+            <button id="difficultyNormal" class="active">Normal</button>
+            <button id="difficultyHard">Difícil</button>
+        </div>
+    </div>
+
+    <div class="settings-group">
+        <h2>Shaders</h2>
+        <div class="settings-options">
+            <button id="shaderOff" class="active">Off</button>
+            <button id="shaderInvert">Inversión de Color</button>
+            <button id="shaderChromaticGlow">Aberración Cromática y Brillo</button>
+        </div>
+    </div>
+
+    <div class="settings-group">
+        <h2>Modo de Color</h2> <!-- New Color Mode setting -->
+        <div class="settings-options">
+            <button id="colorModePerRound">Por Ronda</button>
+            <button id="colorModeRainbow" class="active">Arcoíris</button>
+        </div>
+    </div>
+
+    <button id="backToMainMenuButton" class="menu-option-button">Volver</button>
+  </div>
+
+  <!-- New Pause Menu -->
+  <div id="pauseMenu" class="game-menu hidden">
+    <h1>Juego Pausado</h1>
+    <button id="continueButton" class="menu-option-button">Continuar</button>
+    <button id="restartButton" class="menu-option-button">Reiniciar</button>
+    <button id="exitToMenuButton" class="menu-option-button">Salir al Menú Principal</button>
+  </div>
+
+  <!-- New Score Screen -->
+  <div id="scoreScreen" class="game-menu hidden">
+    <h1>Resultados Finales</h1>
+    <p>Puntuación: <span id="finalScore">0</span></p>
+    <p>Precisión: <span id="finalAccuracy">0%</span></p>
+    <p>Clasificación: <span id="finalRank">E</span></p>
+    <button id="playAgainButton" class="menu-option-button">Jugar de Nuevo</button>
+  </div>
+
+  <div id="hud">
+    <div class="hud-item">Puntuación: <span id="score">0</span></div>
+    <div class="hud-item">BPM: <span id="bpm">0</span></div>
+    <div class="hud-item">Precisión: <span id="accuracy">100%</span></div>
+    <div class="hud-item">Combo: <span id="combo">0</span></div>
+  </div>
+  <canvas id="gameCanvas"></canvas> <!-- Main game canvas, now full screen -->
+  <div class="info-text" id="gameInfoText"> <!-- Added ID for easier manipulation -->
+    Presiona SPACE o toca cuando los círculos coincidan
+  </div>
+
+  <!-- Intro Animation Text -->
+  <div id="introAnimationText" class="hidden">¡Prepárate!</div>
+
+  <!-- Custom Modal for Alerts -->
+  <div id="customAlertModal" class="modal">
+      <div class="modal-content">
+          <h2 id="customAlertTitle"></h2>
+          <p id="customAlertMessage"></p>
+          <button id="customAlertCloseButton">OK</button>
+      </div>
+  </div>
+
+  <!-- Orientation Warning -->
+  <div id="orientationWarning">
+      <p>Para una mejor experiencia de juego, por favor, rota tu dispositivo a orientación vertical.</p>
+      <p>(O asegúrate de que tu pantalla no sea demasiado ancha en modo horizontal)</p>
+  </div>
+
+  <script>
+    // --- Constants and Configuration ---
+    // Game precision base settings (thresholds are in degrees)
+    const BASE_PRECISION = {
+      NANO: { threshold: 1.5, score: 350, color: '#AECAD2', text: 'NANO!' },
+      PERFECT: { threshold: 3, score: 300, color: '#C3F8B7', text: 'PERFECT!' },
+      BEST: { threshold: 6, score: 150, color: '#FFFACD', text: 'BEST!' },
+      GOOD: { threshold: 10, score: 75, color: '#FFD1DC', text: 'GOOD' },
+      BAD: { threshold: 15, score: 25, color: '#D5B8FF', text: 'BAD' },
+      MISS: { threshold: Infinity, score: 0, color: '#FF7F7F', text: 'MISS' }
+    };
+
+    // Difficulty multipliers for precision thresholds
+    const DIFFICULTY_MULTIPLIERS = {
+        'easy': 1.5,   // Wider threshold, easier to hit
+        'normal': 1.0, // Base threshold
+        'hard': 0.7    // Narrower threshold, harder to hit
+    };
+
+    // Graphics settings: (num_background_squares, particles_count, num_background_lines)
+    const GRAPHICS_SETTINGS = {
+        'low': { squares: 10, particles: 10, lines: 5 },
+        'medium': { squares: 40, particles: 25, lines: 15 },
+        'high': { squares: 80, particles: 50, lines: 30 }
+    };
+
+    const TRAIL_LENGTH = 20;
+    const HIT_TEXT_LIFETIME = 900;
+    const TRIANGLE_COUNT_MAIN_CIRCLE = 16;
+    const TRIANGLE_SIZE_MAIN = 0.02;
+
+    const COMBO_TEXT_LIFETIME = 1500; // Duration for "COMBO X!" text
+    const ROUND_COMPLETE_TEXT_LIFETIME = 2000; // 2 seconds for "ROUND X COMPLETED!" text
+    const INTRO_ANIMATION_DURATION = 2000; // 2 seconds for intro animation
+
+    // Pastel color palette
+    const PASTEL_COLORS = [
+      '#FFD1DC', // Pastel Pink
+      '#BCE2E8', // Pastel Blue
+      '#FFFACD', // Pastel Yellow
+      '#C3F8B7', // Pastel Green
+      '#D5B8FF', // Pastel Lavender
+      '#FFECB3'  // Pastel Peach
+    ];
+    let currentColorIndex = 0;
+    let colorUpdateIntervalId; // To store the interval ID for color updates
+
+    // Global variables for background elements and particles count,
+    // which will be updated by graphics settings
+    let NUM_BACKGROUND_SQUARES = GRAPHICS_SETTINGS.medium.squares;
+    let PARTICLES_COUNT = GRAPHICS_SETTINGS.medium.particles;
+    let NUM_BACKGROUND_LINES = GRAPHICS_SETTINGS.medium.lines;
+
+    // --- Optimization Constants ---
+    const MAX_PARTICLES = 200; // Max number of particles at any given time
+    const MAX_FEEDBACK_TEXTS = 20; // Max number of hit/combo/round texts at any given time
+    const DEG_TO_RAD = Math.PI / 180; // Precalculated constant for degree to radian conversion
+    const RAD_TO_DEG = 180 / Math.PI; // Precalculated constant for radian to degree conversion
+
+    // --- Object Pools ---
+    const particlePool = Array(MAX_PARTICLES).fill(null).map(() => ({})); // Initialize with empty objects
+    let nextAvailableParticleIndex = 0;
+
+    const hitTextPool = Array(MAX_FEEDBACK_TEXTS).fill(null).map(() => ({}));
+    let nextAvailableHitTextIndex = 0;
+
+    const comboTextPool = Array(MAX_FEEDBACK_TEXTS).fill(null).map(() => ({}));
+    let nextAvailableComboTextIndex = 0;
+
+    const roundCompleteTextPool = Array(MAX_FEEDBACK_TEXTS).fill(null).map(() => ({}));
+    let nextAvailableRoundCompleteTextIndex = 0;
+
+    // --- DOM Elements ---
+    const canvas = document.getElementById('gameCanvas'); // Main game canvas
+    const ctx = canvas.getContext('2d');
+    
+    const elements = {
+      score: document.getElementById('score'),
+      bpm: document.getElementById('bpm'),
+      accuracy: document.getElementById('accuracy'),
+      combo: document.getElementById('combo'), // New combo element
+      startMenu: document.getElementById('startMenu'),
+      playButton: document.getElementById('playButton'),
+      settingsButton: document.getElementById('settingsButton'),
+      aboutButton: document.getElementById('aboutButton'),
+      settingsMenu: document.getElementById('settingsMenu'),
+      backToMainMenuButton: document.getElementById('backToMainMenuButton'),
+      graphicsLow: document.getElementById('graphicsLow'),
+      graphicsMedium: document.getElementById('graphicsMedium'),
+      graphicsHigh: document.getElementById('graphicsHigh'),
+      difficultyEasy: document.getElementById('difficultyEasy'),
+      difficultyNormal: document.getElementById('difficultyNormal'),
+      difficultyHard: document.getElementById('difficultyHard'),
+      shaderOff: document.getElementById('shaderOff'), // New shader button
+      shaderInvert: document.getElementById('shaderInvert'), // New shader button for inversion
+      shaderChromaticGlow: document.getElementById('shaderChromaticGlow'), // New shader button for chromatic + glow
+      customAlertModal: document.getElementById('customAlertModal'),
+      customAlertTitle: document.getElementById('customAlertTitle'),
+      customAlertMessage: document.getElementById('customAlertMessage'),
+      customAlertCloseButton: document.getElementById('customAlertCloseButton'),
+      pauseMenu: document.getElementById('pauseMenu'), // New pause menu element
+      continueButton: document.getElementById('continueButton'), // New continue button
+      restartButton: document.getElementById('restartButton'), // New restart button
+      exitToMenuButton: document.getElementById('exitToMenuButton'), // New exit button
+      colorModePerRound: document.getElementById('colorModePerRound'), // New color mode button
+      colorModeRainbow: document.getElementById('colorModeRainbow'),   // New color mode button
+      gameInfoText: document.getElementById('gameInfoText'), // Reference to the info text
+      scoreScreen: document.getElementById('scoreScreen'), // New score screen element
+      finalScore: document.getElementById('finalScore'), // Final score display
+      finalAccuracy: document.getElementById('finalAccuracy'), // Final accuracy display
+      finalRank: document.getElementById('finalRank'), // Final rank display
+      playAgainButton: document.getElementById('playAgainButton'), // Play again button
+      introAnimationText: document.getElementById('introAnimationText'), // Intro animation text
+      orientationWarning: document.getElementById('orientationWarning') // Orientation warning
+    };
+
+    // --- Game State ---
+    let gameState = {
+      phase: 'menu', // 'menu', 'introAnimation', 'playing', 'ended', 'settings', 'roundComplete', 'paused', 'scoreScreen'
+      score: 0,
+      lastTime: 0,
+      currentRoundIndex: 0,
+      totalHits: 0,
+      totalAttempts: 0,
+      activeMarkers: [],
+      particles: [], // Active particles
+      hitFeedbackTexts: [], // Active hit feedback texts
+      comboFeedbackTexts: [], // Active combo texts
+      roundCompleteTexts: [], // Active round complete texts
+      player: {
+        angle: 0,
+        radius: 0,
+        trail: []
+      },
+      startTime: 0,
+      globalTime: 0,
+      currentDifficulty: 'normal', // Default difficulty
+      currentGraphicsQuality: 'medium', // Default graphics quality
+      activeShader: 'none', // 'none', 'invert', 'chromatic_glow'
+      combo: 0, // Current combo count
+      centralReelPulseScale: 1, // For central reel animation
+      nextRoundStartTime: 0, // Time when next round should start
+      colorMode: 'rainbow', // Default color mode
+      introAnimationStartTime: 0, // For intro animation
+      finalScoreValue: 0, // Store final score for score screen
+      finalAccuracyValue: 0 // Store final accuracy for score screen
+    };
+
+    // Main game circle object (for size and position reference)
+    const mainCircle = { x: 0, y: 0, radius: 0 };
+
+    // Arrays to store background elements properties
+    let backgroundSquares = [];
+    let backgroundLines = []; // New array for background lines
+
+    // Game rounds with different BPM and note patterns
+    const rounds = [
+      { bpm: 60, notes: [90, 270], beatsPerRotation: 2 },
+      { bpm: 90, notes: [0, 120, 240], beatsPerRotation: 3 },
+      { bpm: 120, notes: [45, 135, 225, 315], beatsPerRotation: 4 },
+      { bpm: 150, notes: [0, 72, 144, 216, 288], beatsPerRotation: 5 }
+    ];
+
+    // Off-screen canvas for shader effects
+    let tempCanvas = null;
+    let tempCtx = null;
+
+    // Variable to track if spacebar is currently pressed to prevent multiple hits on keydown auto-repeat
+    let isSpacePressed = false;
+
+    // Debounce variable for gameplay input (keyboard and touch)
+    let lastGameplayInputTime = 0;
+    const GAMEPLAY_INPUT_COOLDOWN = 200; // 200ms cooldown to prevent multiple rapid taps
+
+    // --- Utility Functions ---
+    /**
+     * Shows a custom alert modal with a title and message.
+     * @param {string} title - The title of the alert.
+     * @param {string} message - The message content of the alert.
+     */
+    function customAlert(title, message) {
+        elements.customAlertTitle.textContent = title;
+        elements.customAlertMessage.textContent = message;
+        elements.customAlertModal.style.display = 'flex';
+    }
+
+    /** Hides the custom alert modal. */
+    function hideCustomAlert() {
+        elements.customAlertModal.style.display = 'none';
+    }
+
+    /**
+     * Converts a hex color string to an RGB string (e.g., "255,0,255").
+     * @param {string} hex - The hex color string (e.g., "#RRGGBB").
+     * @returns {string} The RGB string.
+     */
+    function hexToRgb(hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `${r},${g},${b}`;
+    }
+
+    /**
+     * Retrieves a CSS variable value and converts it to an RGB string for canvas drawing.
+     * @param {string} cssVar - The name of the CSS variable (e.g., '--main-border-color').
+     * @returns {string} The RGB string (e.g., "174,202,210").
+     */
+    function var_to_rgb(cssVar) {
+        const computedStyle = getComputedStyle(document.body);
+        const color = computedStyle.getPropertyValue(cssVar).trim();
+        if (color.startsWith('#')) {
+            return hexToRgb(color);
+        }
+        // If it's already in rgb() or rgba() format, extract only RGB values
+        if (color.startsWith('rgb(') || color.startsWith('rgba(')) {
+            return color.match(/\d+/g).slice(0,3).join(',');
+        }
+        return '255,255,255'; // Default to white if not recognized
+    }
+
+    /** Updates the current color index for cycling through pastel colors. */
+    function updatePsychedelicColors() {
+      // This function will only be called by setInterval if colorMode is 'rainbow'
+      currentColorIndex = (currentColorIndex + 1) % PASTEL_COLORS.length;
+    }
+
+    /** Initializes (or re-initializes) the background squares and lines. */
+    function initializeBackgroundElements() {
+        backgroundSquares = [];
+        backgroundLines = [];
+
+        // Background elements should cover the entire viewport
+        const bgAreaWidth = window.innerWidth;
+        const bgAreaHeight = window.innerHeight;
+
+        // Initialize background squares
+        for (let i = 0; i < NUM_BACKGROUND_SQUARES; i++) {
+            backgroundSquares.push({
+                x: Math.random() * bgAreaWidth,
+                y: Math.random() * bgAreaHeight,
+                size: Math.random() * 50 + 20,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.00005, // Slower rotation
+                moveSpeedX: (Math.random() - 0.5) * 0.005, // Slower movement for parallax
+                moveSpeedY: (Math.random() - 0.5) * 0.005,
+                color: PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)],
+                alpha: Math.random() * 0.1 + 0.03 // Very low opacity for background
+            });
+        }
+
+        // Initialize background lines
+        for (let i = 0; i < NUM_BACKGROUND_LINES; i++) {
+            backgroundLines.push({
+                x: Math.random() * bgAreaWidth,
+                y: Math.random() * bgAreaHeight,
+                length: Math.random() * 100 + 50,
+                angle: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.0001, // Slightly faster rotation than squares
+                moveSpeed: Math.random() * 0.08 + 0.03, // Faster movement than squares for more parallax
+                color: PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)],
+                alpha: Math.random() * 0.08 + 0.02 // Very low opacity
+            });
+        }
+    }
+
+    // --- Initialization Functions ---
+    /** Adjusts canvas size responsively and initializes background elements. */
+    const setCanvasSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+
+      // Set dimensions for the main game canvas to cover the whole window
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.scale(dpr, dpr); // Scale context for high-DPI screens
+
+      // Initialize or resize the off-screen canvas for shaders
+      if (!tempCanvas) {
+        tempCanvas = document.createElement('canvas');
+        tempCtx = tempCanvas.getContext('2d');
+      }
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+
+      // mainCircle.x and mainCircle.y are centered relative to the full canvas
+      mainCircle.x = window.innerWidth / 2;
+      mainCircle.y = window.innerHeight / 2;
+      
+      // mainCircle.radius scales with the minimum dimension of the window
+      const gameAreaSize = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+      mainCircle.radius = gameAreaSize * 0.45; // Larger orbit
+      gameState.player.radius = mainCircle.radius * 0.08; // Player size relative to orbit
+
+      initializeBackgroundElements(); // Re-initialize background elements for the full canvas
+    };
+    
+    // --- Game Logic Functions ---
+    function startRound(roundIndex) {
+      if (roundIndex >= rounds.length) {
+          // If all rounds are completed, go to the score screen
+          showScoreScreen();
+          return;
+      }
+
+      const round = rounds[roundIndex];
+      // Reset only hit status for new round markers
+      gameState.activeMarkers = round.notes.map(angle => ({ angle, hit: false, originalAngle: angle }));
+      elements.bpm.textContent = round.bpm;
+      gameState.player.angle = 0;
+      gameState.player.trail = [];
+      gameState.currentRoundIndex = roundIndex;
+
+      // If "Per Round" color mode, set the color once for the round
+      if (gameState.colorMode === 'per_round') {
+          currentColorIndex = Math.floor(Math.random() * PASTEL_COLORS.length); // Pick a random color for the round
+      }
+    }
+
+    function endGame() {
+        // This function is now primarily for setting the phase to 'ended'
+        // The actual display of score/rank is handled by showScoreScreen()
+        gameState.phase = 'ended'; 
+        gameState.comboFeedbackTexts = []; // Clear any floating combo texts
+        gameState.roundCompleteTexts = []; // Clear any round complete texts
+        updateHUD(); // Ensure HUD reflects final state
+        // No direct canvas drawing here, showScoreScreen will be called
+    }
+
+    /**
+     * Calculates the accuracy rank based on a percentage.
+     * @param {number} accuracyPercentage - The accuracy as a percentage (e.g., 95.5).
+     * @returns {string} The rank (e.g., "SX", "A").
+     */
+    function getAccuracyRank(accuracyPercentage) {
+        if (accuracyPercentage === 100) return 'SX';
+        if (accuracyPercentage >= 95) return 'S';
+        if (accuracyPercentage >= 90) return 'A';
+        if (accuracyPercentage >= 80) return 'B';
+        if (accuracyPercentage >= 70) return 'C';
+        if (accuracyPercentage >= 60) return 'D';
+        return 'E';
+    }
+
+    /** Displays the final score screen. */
+    function showScoreScreen() {
+        gameState.phase = 'scoreScreen';
+        elements.finalScore.textContent = gameState.score;
+        const accuracy = gameState.totalAttempts === 0 ? 100 : (gameState.totalHits / gameState.totalAttempts * 100);
+        gameState.finalAccuracyValue = accuracy.toFixed(1); // Store for display
+        elements.finalAccuracy.textContent = `${gameState.finalAccuracyValue}%`;
+        elements.finalRank.textContent = getAccuracyRank(parseFloat(gameState.finalAccuracyValue));
+        elements.scoreScreen.classList.remove('hidden');
+    }
+
+    function resetGameStats() {
+        gameState.score = 0;
+        gameState.totalHits = 0;
+        gameState.totalAttempts = 0;
+        gameState.combo = 0; // Combo reset here (on new game start)
+        // Clear active feedback texts and reset pools
+        gameState.comboFeedbackTexts = [];
+        gameState.roundCompleteTexts = [];
+        gameState.hitFeedbackTexts = [];
+        gameState.particles = [];
+        nextAvailableParticleIndex = 0;
+        nextAvailableHitTextIndex = 0;
+        nextAvailableComboTextIndex = 0;
+        nextAvailableRoundCompleteTextIndex = 0;
+        updateHUD();
+    }
+
+
+    function checkHit() {
+      const currentAngle = (gameState.player.angle % 360 + 360) % 360; // Calculate current angle once
+      gameState.totalAttempts++;
+      let bestPrecision = BASE_PRECISION.MISS;
+      let hitMarkerIndex = -1;
+
+      let closestDiff = Infinity;
+      gameState.activeMarkers.forEach((marker, index) => {
+        if (!marker.hit) {
+          const angleDiff = Math.min(
+            Math.abs(currentAngle - marker.angle),
+            Math.abs(currentAngle - (marker.angle + 360)),
+            Math.abs(currentAngle - (marker.angle - 360))
+          );
+          if (angleDiff < closestDiff) {
+            closestDiff = angleDiff;
+            hitMarkerIndex = index;
+          }
+        }
+      });
+
+      if (hitMarkerIndex !== -1) {
+        const marker = gameState.activeMarkers[hitMarkerIndex];
+        bestPrecision = calculatePrecision(closestDiff);
+
+        if (bestPrecision.score > 0) {
+          gameState.score += bestPrecision.score;
+          gameState.totalHits++;
+          marker.hit = true;
+          createParticles(marker.originalAngle, bestPrecision.color, true);
+          createHitFeedbackText(bestPrecision.text, bestPrecision.color);
+
+          // Combo system logic: Increment combo on successful hit
+          gameState.combo++;
+          if (gameState.combo > 1 && gameState.combo % 5 === 0) { // Show combo text every 5 hits
+              createComboFeedbackText(`COMBO ${gameState.combo}!`, PASTEL_COLORS[currentColorIndex]);
+          }
+          gameState.centralReelPulseScale = 1.1; // Start central reel pulse animation
+        } else {
+            // If it's a BAD hit or MISS, reset combo
+            gameState.combo = 0;
+            createHitFeedbackText(bestPrecision.text, bestPrecision.color);
+            createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Red text for broken combo
+        }
+      } else {
+          // If no marker was hit (missed input, but no active marker was close enough), reset combo
+          gameState.combo = 0;
+          createHitFeedbackText(BASE_PRECISION.MISS.text, BASE_PRECISION.MISS.color);
+          createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Red text for broken combo
+      }
+
+      updateHUD();
+
+      const allMarkersHit = gameState.activeMarkers.every(marker => marker.hit);
+      if (allMarkersHit) {
+        createRoundCompleteText(`RONDA ${gameState.currentRoundIndex + 1} COMPLETADA!`, PASTEL_COLORS[currentColorIndex]);
+        gameState.phase = 'roundComplete';
+        gameState.nextRoundStartTime = gameState.globalTime + 2000; // 2 seconds delay
+      }
+    }
+
+    /**
+     * Calculates precision based on angle difference and current difficulty setting.
+     * @param {number} angleDiff - The absolute difference in angle between player and marker.
+     * @returns {object} The precision level (NANO, PERFECT, etc.).
+     */
+    function calculatePrecision(angleDiff) {
+        const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[gameState.currentDifficulty];
+        
+        for (const key in BASE_PRECISION) {
+            const precisionLevel = BASE_PRECISION[key];
+            // Apply multiplier only to thresholds that are not Infinity (i.e., not MISS)
+            if (precisionLevel.threshold !== Infinity && angleDiff <= precisionLevel.threshold * difficultyMultiplier) {
+                return precisionLevel;
+            }
+        }
+        return BASE_PRECISION.MISS;
+    }
+
+    /**
+     * Creates visual particles at a given angle and color, reusing from a pool.
+     * @param {number} angle - The angle on the circle where particles should appear.
+     * @param {string} color - The color of the particles (hex string).
+     * @param {boolean} isSquare - True if particles should be square, false for circular.
+     */
+    function createParticles(angle, color, isSquare = false) {
+      const radian = angle * DEG_TO_RAD;
+      const spawnRadius = mainCircle.radius;
+      const x = mainCircle.x + Math.cos(radian) * spawnRadius;
+      const y = mainCircle.y + Math.sin(radian) * spawnRadius;
+
+      for (let i = 0; i < PARTICLES_COUNT; i++) {
+        // Get a particle from the pool
+        const particle = particlePool[nextAvailableParticleIndex];
+        nextAvailableParticleIndex = (nextAvailableParticleIndex + 1) % MAX_PARTICLES;
+
+        const speed = Math.random() * 3 + 0.5;
+        const angleOffset = (Math.random() - 0.5) * Math.PI / 2;
+        const particleAngle = radian + angleOffset;
+        
+        // Reset and set properties for the recycled particle
+        particle.x = x;
+        particle.y = y;
+        particle.vx = Math.cos(particleAngle) * speed;
+        particle.vy = Math.sin(particleAngle) * speed;
+        particle.alpha = 1;
+        particle.size = Math.random() * 4 + 2;
+        particle.color = color;
+        particle.isSquare = isSquare;
+
+        gameState.particles.push(particle); // Add to active particles
+      }
+    }
+
+    /**
+     * Creates a floating text feedback (e.g., "PERFECT!"), reusing from a pool.
+     * @param {string} text - The text to display.
+     * @param {string} color - The color of the text (hex string).
+     */
+    function createHitFeedbackText(text, color) {
+        const textObj = hitTextPool[nextAvailableHitTextIndex];
+        nextAvailableHitTextIndex = (nextAvailableHitTextIndex + 1) % MAX_FEEDBACK_TEXTS;
+
+        textObj.text = text;
+        textObj.x = mainCircle.x;
+        textObj.y = mainCircle.y - mainCircle.radius * 0.5;
+        textObj.alpha = 1;
+        textObj.color = color;
+        textObj.startTime = gameState.globalTime;
+        
+        gameState.hitFeedbackTexts.push(textObj);
+    }
+
+    /**
+     * Creates a floating combo text (e.g., "COMBO X!"), reusing from a pool.
+     * @param {string} text - The text to display.
+     * @param {string} color - The color of the text (hex string).
+     */
+    function createComboFeedbackText(text, color) {
+        const textObj = comboTextPool[nextAvailableComboTextIndex];
+        nextAvailableComboTextIndex = (nextAvailableComboTextIndex + 1) % MAX_FEEDBACK_TEXTS;
+
+        textObj.text = text;
+        textObj.x = mainCircle.x;
+        textObj.y = mainCircle.y + mainCircle.radius * 0.5;
+        textObj.alpha = 1;
+        textObj.color = color;
+        textObj.startTime = gameState.globalTime;
+
+        gameState.comboFeedbackTexts.push(textObj);
+    }
+
+    /**
+     * Creates a floating round complete text (e.g., "ROUND X COMPLETED!"), reusing from a pool.
+     * @param {string} text - The text to display.
+     * @param {string} color - The color of the text (hex string).
+     */
+    function createRoundCompleteText(text, color) {
+        const textObj = roundCompleteTextPool[nextAvailableRoundCompleteTextIndex];
+        nextAvailableRoundCompleteTextIndex = (nextAvailableRoundCompleteTextIndex + 1) % MAX_FEEDBACK_TEXTS;
+
+        textObj.text = text;
+        textObj.x = mainCircle.x;
+        textObj.y = mainCircle.y + mainCircle.radius * 0.0;
+        textObj.alpha = 1;
+        textObj.color = color;
+        textObj.startTime = gameState.globalTime;
+
+        gameState.roundCompleteTexts.push(textObj);
+    }
+
+    /** Updates the HUD display (score, BPM, accuracy, combo). */
+    function updateHUD() {
+      elements.score.textContent = gameState.score;
+      const accuracy = gameState.totalAttempts === 0 ? 100 : (gameState.totalHits / gameState.totalAttempts * 100).toFixed(1);
+      elements.accuracy.textContent = `${accuracy}%`;
+      elements.combo.textContent = gameState.combo;
+    }
+
+    /** Draws the single central reel (minimalist cassette center) with a pulse effect. */
+    function drawCentralReel() {
+        // Change: Inner lines color from white to a variable for flexibility,
+        // but keeping it white for now as per "cambio de color al circulo exterior a blanco"
+        const innerLineColor = '#FFFFFF'; 
+
+        let reelRadius = mainCircle.radius * 0.7; 
+        
+        // Apply pulse effect for central reel
+        if (gameState.centralReelPulseScale > 1) {
+            reelRadius *= gameState.centralReelPulseScale;
+            // Decay the pulse scale back to 1 over time
+            gameState.centralReelPulseScale -= (gameState.centralReelPulseScale - 1) * 0.3; // Faster decay
+            if (gameState.centralReelPulseScale < 1.005) gameState.centralReelPulseScale = 1; // Snap to 1
+        }
+
+        ctx.save();
+        ctx.translate(mainCircle.x, mainCircle.y);
+        ctx.rotate(gameState.globalTime * 0.001); // Slowly spin the central reel
+
+        // Radial gradient for a subtle glow effect in the center
+        const gradientRadius = reelRadius * 0.8;
+        const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, gradientRadius);
+        glowGradient.addColorStop(0, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.3)`); // Inner glow
+        glowGradient.addColorStop(0.5, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.1)`);
+        glowGradient.addColorStop(1, 'rgba(0,0,0,0)'); // Outer transparent
+
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, gradientRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Outer circle of the reel (border only, no fill)
+        ctx.beginPath();
+        ctx.arc(0, 0, reelRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#FFFFFF'; // White border for the reel
+        ctx.lineWidth = 6; // Increased border thickness for the reel (from 4 to 6)
+        ctx.stroke();
+
+        // Inner spokes (simulating reel teeth)
+        const numSpokes = 8;
+        for (let i = 0; i < numSpokes; i++) {
+            const spokeAngle = (Math.PI * 2 / numSpokes) * i;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(spokeAngle) * reelRadius, Math.sin(spokeAngle) * reelRadius);
+            ctx.strokeStyle = innerLineColor;
+            ctx.lineWidth = 3; // Increased line thickness for spokes (from 2 to 3)
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    /** Draws small triangles on the main circle's inner border. */
+    function drawInnerBorderTriangles() {
+        const numTriangles = TRIANGLE_COUNT_MAIN_CIRCLE;
+        const angleStep = (Math.PI * 2) / numTriangles;
+        const triangleBase = mainCircle.radius * (TRIANGLE_SIZE_MAIN + 0.01); // Slightly larger base
+        const triangleHeight = triangleBase * Math.sqrt(3) / 2;
+
+        for (let i = 0; i < numTriangles; i++) {
+            const angle = i * angleStep;
+            // Triangle center is relative to the player's orbit radius
+            const cx = mainCircle.x + Math.cos(angle) * (mainCircle.radius - triangleHeight / 2);
+            const cy = mainCircle.y + Math.sin(angle) * (mainCircle.radius - triangleHeight / 2);
+
+            ctx.save(); // Save context state
+            ctx.translate(cx, cy); // Move origin to triangle center
+            ctx.rotate(angle + Math.PI / 2); // Rotate to point towards circle center
+
+            ctx.beginPath();
+            ctx.moveTo(0, -triangleHeight / 2); // Top of triangle
+            ctx.lineTo(-triangleBase / 2, triangleHeight / 2); // Bottom-left corner
+            ctx.lineTo(triangleBase / 2, triangleHeight / 2); // Bottom-right corner
+            ctx.closePath();
+
+            ctx.fillStyle = PASTEL_COLORS[(i + currentColorIndex) % PASTEL_COLORS.length]; // Cycle colors
+            ctx.fill();
+            ctx.restore(); // Restore context state
+        }
+    }
+
+    /** Draws the markers (target balls) for the player to hit. */
+    function drawMarkers() {
+      const centerX = mainCircle.x;
+      const centerY = mainCircle.y;
+      const radius = mainCircle.radius;
+      const markerRadius = radius * 0.05; // Larger active marker size
+        
+      gameState.activeMarkers.forEach(marker => {
+        if (marker.hit) {
+            ctx.beginPath();
+            ctx.arc(
+                centerX + Math.cos(marker.originalAngle * DEG_TO_RAD) * radius, // Use DEG_TO_RAD
+                centerY + Math.sin(marker.originalAngle * DEG_TO_RAD) * radius, // Use DEG_TO_RAD
+                mainCircle.radius * 0.035, // Slightly larger when hit for visibility
+                0, Math.PI * 2
+            );
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Faded white for hit markers
+            ctx.fill();
+            return;
+        }
+
+        const radian = marker.angle * DEG_TO_RAD; // Use DEG_TO_RAD
+        const x = centerX + Math.cos(radian) * radius;
+        const y = centerY + Math.sin(radian) * radius;
+
+        ctx.beginPath();
+        ctx.arc(x, y, markerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length];
+        ctx.fill();
+        ctx.strokeStyle = var_to_rgb('--main-border-color'); // Consistent border color
+        ctx.lineWidth = 4; // Thicker border
+        ctx.stroke();
+      });
+    }
+
+    /** Updates the player's angle and trail. */
+    function updatePlayer(deltaTime) {
+      const round = rounds[gameState.currentRoundIndex];
+      if (!round) return;
+
+      // BPM Logic: Each BPM now equals half a circle rotation (180 degrees)
+      const degreesPerBeat = 180 / round.beatsPerRotation;
+      gameState.player.angle += (degreesPerBeat * (round.bpm / 60)) * (deltaTime / 1000);
+
+      gameState.player.trail.push({
+        angle: gameState.player.angle,
+        alpha: 1,
+        color: PASTEL_COLORS[(currentColorIndex + 3) % PASTEL_COLORS.length]
+      });
+
+      if (gameState.player.trail.length > TRAIL_LENGTH) {
+        gameState.player.trail.shift();
+      }
+    }
+
+    /** Draws the player's trail. */
+    function drawTrail() {
+      for (let i = 0; i < gameState.player.trail.length; i++) {
+        const pos = gameState.player.trail[i];
+        const alpha = (i / TRAIL_LENGTH) * 0.7;
+        const radian = pos.angle * DEG_TO_RAD; // Use DEG_TO_RAD
+        const x = mainCircle.x + Math.cos(radian) * mainCircle.radius;
+        const y = mainCircle.y + Math.sin(radian) * mainCircle.radius;
+        const size = gameState.player.radius * (0.1 + (i / TRAIL_LENGTH * 0.8));
+
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${hexToRgb(pos.color)},${alpha})`;
+        ctx.fill();
+      }
+    }
+
+    /** Draws the player's circle. */
+    function drawPlayer() {
+      const radian = gameState.player.angle * DEG_TO_RAD; // Use DEG_TO_RAD
+      const x = mainCircle.x + Math.cos(radian) * mainCircle.radius;
+      const y = mainCircle.y + Math.sin(radian) * mainCircle.radius;
+
+      ctx.beginPath();
+      ctx.arc(x, y, gameState.player.radius, 0, Math.PI * 2);
+      ctx.fillStyle = PASTEL_COLORS[currentColorIndex];
+      ctx.fill();
+      ctx.strokeStyle = var_to_rgb('--main-border-color'); // Consistent border color
+      ctx.lineWidth = 4; // Thicker border
+      ctx.stroke();
+    }
+
+    /** Draws and updates particles. */
+    function drawParticles() {
+      gameState.particles = gameState.particles.filter(particle => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.alpha -= 0.03;
+        particle.size *= 0.98;
+
+        ctx.fillStyle = `rgba(${hexToRgb(particle.color)},${particle.alpha})`;
+        if (particle.isSquare) {
+            ctx.fillRect(particle.x - particle.size / 2, particle.y - particle.size / 2, particle.size, particle.size);
+        } else {
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        return particle.alpha > 0 && particle.size > 0.5;
+      });
+    }
+
+    /** Draws and updates hit feedback texts. */
+    function drawHitFeedbackTexts(deltaTime) {
+      gameState.hitFeedbackTexts = gameState.hitFeedbackTexts.filter(textObj => {
+        const elapsed = gameState.globalTime - textObj.startTime;
+        textObj.alpha = 1 - (elapsed / HIT_TEXT_LIFETIME);
+        textObj.y -= deltaTime * 0.05;
+
+        if (textObj.alpha > 0) {
+          ctx.fillStyle = `rgba(${hexToRgb(textObj.color)}, ${textObj.alpha})`;
+          ctx.font = `bold ${25 * textObj.alpha + 10}px Inter`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(textObj.text, textObj.x, textObj.y);
+          return true;
+        }
+        return false;
+      });
+    }
+
+    /** Draws and updates combo feedback texts. */
+    function drawComboFeedbackTexts(deltaTime) {
+        gameState.comboFeedbackTexts = gameState.comboFeedbackTexts.filter(textObj => {
+            const elapsed = gameState.globalTime - textObj.startTime;
+            textObj.alpha = 1 - (elapsed / COMBO_TEXT_LIFETIME);
+            textObj.y -= deltaTime * 0.04; // Slightly slower float
+
+            if (textObj.alpha > 0) {
+                ctx.fillStyle = `rgba(${hexToRgb(textObj.color)}, ${textObj.alpha})`;
+                ctx.font = `bold ${30 * textObj.alpha + 15}px Inter`; // Larger, fading font
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(textObj.text, textObj.x, textObj.y);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /** Draws and updates round complete texts. */
+    function drawRoundCompleteTexts(deltaTime) {
+        gameState.roundCompleteTexts = gameState.roundCompleteTexts.filter(textObj => {
+            const elapsed = gameState.globalTime - textObj.startTime;
+            textObj.alpha = 1 - (elapsed / ROUND_COMPLETE_TEXT_LIFETIME);
+            // Keep the text centered, don't move it vertically
+
+            if (textObj.alpha > 0) {
+                ctx.fillStyle = `rgba(${hexToRgb(textObj.color)}, ${textObj.alpha})`;
+                ctx.font = `bold ${40 * textObj.alpha + 20}px Inter`; // Large, fading font
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(textObj.text, textObj.x, textObj.y);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /**
+     * Draws and updates the background squares and lines on the main canvas.
+     * @param {number} deltaTime - Time elapsed since the last frame.
+     */
+    function drawBackgroundElements(deltaTime) {
+        ctx.save();
+        
+        // Get current canvas dimensions for wrapping elements
+        const currentCanvasWidth = window.innerWidth;
+        const currentCanvasHeight = window.innerHeight;
+
+        // Draw and update squares
+        backgroundSquares.forEach(square => {
+            square.x += square.moveSpeedX * deltaTime;
+            square.y += square.moveSpeedY * deltaTime;
+            square.rotation += square.rotationSpeed * deltaTime;
+
+            // Wrap squares if they go off canvas bounds
+            if (square.x > currentCanvasWidth + square.size) square.x = -square.size;
+            if (square.x < -square.size) square.x = currentCanvasWidth + square.size;
+            if (square.y > currentCanvasHeight + square.size) square.y = -square.size;
+            if (square.y < -square.size) square.y = currentCanvasHeight + square.size;
+
+            ctx.save();
+            ctx.translate(square.x, square.y);
+            ctx.rotate(square.rotation);
+            ctx.fillStyle = `rgba(${hexToRgb(square.color)}, ${square.alpha})`;
+            ctx.fillRect(-square.size / 2, -square.size / 2, square.size, square.size);
+            ctx.restore();
+        });
+
+        // Draw and update lines
+        backgroundLines.forEach(line => {
+            // Lines move based on their angle and speed for a consistent direction
+            line.x += Math.cos(line.angle) * line.moveSpeed * deltaTime;
+            line.y += Math.sin(line.angle) * line.moveSpeed * deltaTime;
+            line.angle += line.rotationSpeed * deltaTime; // Lines can also slowly rotate
+
+            // Wrap lines
+            if (line.x > currentCanvasWidth + line.length) line.x = -line.length;
+            if (line.x < -line.length) line.x = currentCanvasWidth + line.length;
+            if (line.y > currentCanvasHeight + line.length) line.y = -line.length;
+            if (line.y < -line.length) line.y = currentCanvasHeight + line.length;
+
+            ctx.save();
+            ctx.translate(line.x, line.y);
+            ctx.rotate(line.angle);
+            ctx.strokeStyle = `rgba(${hexToRgb(line.color)}, ${line.alpha})`;
+            ctx.lineWidth = 2; // Fixed line width
+            ctx.beginPath();
+            ctx.moveTo(-line.length / 2, 0);
+            ctx.lineTo(line.length / 2, 0);
+            ctx.stroke();
+            ctx.restore();
+        });
+
+        ctx.restore();
+    }
+
+    /** Applies the Chromatic Aberration and Motion Glow shader effect. */
+    function applyChromaticGlowShader() {
+        // Verify if the shader is active before doing any calculation
+        if (gameState.activeShader !== 'chromatic_glow') return;
+        
+        // Ensure tempCanvas and tempCtx are initialized and sized correctly
+        if (!tempCanvas || tempCanvas.width !== canvas.width || tempCanvas.height !== canvas.height) {
+            setCanvasSize(); // Reinitialize if needed
+        }
+
+        // Add a check here for the main canvas dimensions before drawing
+        if (canvas.width === 0 || canvas.height === 0) {
+            console.error("Canvas dimensions are zero, cannot apply shader.");
+            return; // Prevent drawing if canvas is invalid
+        }
+
+        tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.drawImage(canvas, 0, 0); // Draw the current main canvas content to temp canvas
+
+        // Clear the main canvas to redraw with effect
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save(); // Save context state
+        ctx.globalCompositeOperation = 'lighter'; 
+        
+        const glowBlur = 0.5; // Reduced blur for minimal motion glow
+
+        // Animate the offset for chromatic aberration
+        const animatedOffset = Math.sin(gameState.globalTime * 0.002) * 1.5 + 1; // Oscillates between -0.5 and 2.5
+
+        // Draw layers with effects
+        const layers = [
+            { offsetX: -animatedOffset, offsetY: -animatedOffset, filter: `blur(${glowBlur}px)`, hueRotate: 0 },
+            { offsetX: 0, offsetY: 0, filter: `blur(${glowBlur * 0.5}px)`, hueRotate: 120 },
+            { offsetX: animatedOffset, offsetY: animatedOffset, filter: `blur(${glowBlur}px)`, hueRotate: 240 }
+        ];
+        
+        layers.forEach(layer => {
+            ctx.filter = `${layer.filter} hue-rotate(${layer.hueRotate}deg) brightness(1.1) saturate(1.2)`;
+            ctx.drawImage(tempCanvas, layer.offsetX, layer.offsetY);
+        });
+        
+        ctx.restore(); // Restore context state to reset globalCompositeOperation and filter
+    }
+
+    /** Draws all core game elements. */
+    function drawCoreGameElements(deltaTime) {
+        drawCentralReel();
+        drawInnerBorderTriangles();
+        drawMarkers();
+        updatePlayer(deltaTime);
+        drawTrail();
+        drawPlayer();
+        drawParticles();
+        drawHitFeedbackTexts(deltaTime);
+        drawComboFeedbackTexts(deltaTime);
+        drawRoundCompleteTexts(deltaTime);
+    }
+
+    // --- Render Loop ---
+    /**
+     * Main game rendering and update loop.
+     * @param {DOMHighResTimeStamp} timestamp - The current time provided by requestAnimationFrame.
+     */
+    function draw(timestamp) {
+      if (!gameState.lastTime) gameState.lastTime = timestamp;
+      const deltaTime = timestamp - gameState.lastTime;
+      gameState.lastTime = timestamp;
+      
+      // Only update global time if not paused
+      if (gameState.phase !== 'paused') {
+        gameState.globalTime += deltaTime;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Always clear the entire canvas to handle animated background elements correctly
+
+      // Only draw game-specific visuals if NOT in the main menu, settings, or score screen.
+      if (gameState.phase !== 'menu' && gameState.phase !== 'settings' && gameState.phase !== 'scoreScreen') {
+        // Draw common game visual elements (background and main circle border)
+        drawBackgroundElements(deltaTime); // Background elements animate even when paused
+
+        ctx.beginPath();
+        ctx.arc(mainCircle.x, mainCircle.y, mainCircle.radius + 6, 0, Math.PI * 2); // Outer part of border
+        ctx.strokeStyle = '#FFFFFF'; // Changed to white
+        ctx.lineWidth = 12; // Matches the CSS border size visually
+        ctx.stroke();
+
+        // Render game elements based on current phase
+        if (gameState.phase === 'playing') {
+          drawCoreGameElements(deltaTime);
+        } else if (gameState.phase === 'roundComplete') {
+          drawCoreGameElements(deltaTime);
+          
+          // Check if it's time to start the next round
+          if (gameState.globalTime >= gameState.nextRoundStartTime) {
+            gameState.currentRoundIndex++;
+            startRound(gameState.currentRoundIndex); // Calls showScoreScreen if all rounds done
+            if (gameState.phase !== 'scoreScreen') { // Only set to playing if not transitioning to score screen
+                gameState.phase = 'playing';
+            }
+          }
+        } else if (gameState.phase === 'paused' || gameState.phase === 'ended') {
+            // When paused or ended, draw static game elements (without updates for core game logic,
+            // but transient animations like particles/texts still progress).
+            drawCoreGameElements(deltaTime);
+        } else if (gameState.phase === 'introAnimation') {
+            const elapsed = gameState.globalTime - gameState.introAnimationStartTime;
+            const progress = Math.min(1, elapsed / INTRO_ANIMATION_DURATION);
+
+            // Scale the main circle and central reel during intro
+            const initialRadius = 0;
+            const targetRadius = mainCircle.radius;
+            const currentRadius = initialRadius + (targetRadius - initialRadius) * progress;
+
+            // Temporarily override mainCircle.radius for drawing
+            const originalMainCircleRadius = mainCircle.radius;
+            mainCircle.radius = currentRadius;
+
+            // Draw scaled central reel and main circle border
+            drawCentralReel();
+            ctx.beginPath();
+            ctx.arc(mainCircle.x, mainCircle.y, mainCircle.radius + 6, 0, Math.PI * 2);
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 12;
+            ctx.stroke();
+
+            // Restore original mainCircle.radius
+            mainCircle.radius = originalMainCircleRadius;
+
+            if (elapsed >= INTRO_ANIMATION_DURATION) {
+                elements.introAnimationText.classList.remove('animate-intro'); // Remove class to allow re-animation
+                elements.introAnimationText.classList.add('hidden'); // Hide the intro text
+                gameState.phase = 'playing';
+                gameState.startTime = gameState.globalTime;
+                resetGameStats();
+                startRound(0);
+                setTimeout(hideGameInfoText, 5000);
+            }
+        }
+
+        // Apply shader effect if enabled, at the very end of drawing
+        if (gameState.activeShader === 'invert') {
+            ctx.filter = 'invert(100%)';
+        } else if (gameState.activeShader === 'chromatic_glow') {
+            applyChromaticGlowShader();
+        } else {
+            ctx.filter = 'none';
+        }
+      }
+
+      requestAnimationFrame(draw); // Request next animation frame
+    }
+
+
+    // --- Settings Functions ---
+    /**
+     * Sets the graphics quality and updates related parameters.
+     * @param {string} quality - The desired graphics quality ('low', 'medium', 'high').
+     */
+    function setGraphicsQuality(quality) {
+        gameState.currentGraphicsQuality = quality;
+        NUM_BACKGROUND_SQUARES = GRAPHICS_SETTINGS[quality].squares;
+        PARTICLES_COUNT = GRAPHICS_SETTINGS[quality].particles;
+        NUM_BACKGROUND_LINES = GRAPHICS_SETTINGS[quality].lines; // Update line count
+        initializeBackgroundElements(); // Re-initialize elements with new counts
+        updateSettingsUI(); // Update active button in UI
+        saveSettings(); // Save settings after change
+    }
+
+    /**
+     * Sets the game difficulty.
+     * @param {string} difficulty - The desired difficulty ('easy', 'normal', 'hard').
+     */
+    function setDifficulty(difficulty) {
+        gameState.currentDifficulty = difficulty;
+        updateSettingsUI(); // Update active button in UI
+        saveSettings(); // Save settings after change
+    }
+
+    /**
+     * Sets the active shader effect.
+     * @param {string} effectType - The type of shader to activate ('none', 'invert', 'chromatic_glow').
+     */
+    function setShaderEffect(effectType) {
+        gameState.activeShader = effectType;
+        updateSettingsUI(); // Update active button in UI
+        saveSettings(); // Save settings after change
+    }
+
+    /**
+     * Sets the color mode for the game.
+     * @param {string} mode - The desired color mode ('per_round', 'rainbow').
+     */
+    function setColorMode(mode) {
+        gameState.colorMode = mode;
+        if (gameState.colorMode === 'rainbow') {
+            if (!colorUpdateIntervalId) { // Only start if not already running
+                colorUpdateIntervalId = setInterval(updatePsychedelicColors, 700);
+            }
+        } else {
+            clearInterval(colorUpdateIntervalId); // Stop automatic color change
+            colorUpdateIntervalId = null;
+            // Optionally, reset to a default color or pick one for the current round
+            // For 'per_round' mode, the color is set in startRound()
+        }
+        updateSettingsUI(); // Update active button in UI
+        saveSettings(); // Save settings after change
+    }
+
+    /** Updates the 'active' class for buttons in the settings UI. */
+    function updateSettingsUI() {
+        // Graphics buttons
+        elements.graphicsLow.classList.toggle('active', gameState.currentGraphicsQuality === 'low');
+        elements.graphicsMedium.classList.toggle('active', gameState.currentGraphicsQuality === 'medium');
+        elements.graphicsHigh.classList.toggle('active', gameState.currentGraphicsQuality === 'high');
+
+        // Difficulty buttons
+        elements.difficultyEasy.classList.toggle('active', gameState.currentDifficulty === 'easy');
+        elements.difficultyNormal.classList.toggle('active', gameState.currentDifficulty === 'normal');
+        elements.difficultyHard.classList.toggle('active', gameState.currentDifficulty === 'hard');
+
+        // Shader buttons
+        elements.shaderOff.classList.toggle('active', gameState.activeShader === 'none');
+        elements.shaderInvert.classList.toggle('active', gameState.activeShader === 'invert');
+        elements.shaderChromaticGlow.classList.toggle('active', gameState.activeShader === 'chromatic_glow');
+
+        // Color Mode buttons
+        elements.colorModePerRound.classList.toggle('active', gameState.colorMode === 'per_round');
+        elements.colorModeRainbow.classList.toggle('active', gameState.colorMode === 'rainbow');
+    }
+
+    /** Hides the game info text after a delay. */
+    function hideGameInfoText() {
+        elements.gameInfoText.classList.add('hidden');
+    }
+
+    /** Shows the game info text. */
+    function showGameInfoText() {
+        elements.gameInfoText.classList.remove('hidden');
+    }
+
+    // --- LocalStorage Functions ---
+    /** Saves current game settings to localStorage. */
+    function saveSettings() {
+        const settings = {
+            graphics: gameState.currentGraphicsQuality,
+            difficulty: gameState.currentDifficulty,
+            shader: gameState.activeShader,
+            colorMode: gameState.colorMode
+        };
+        localStorage.setItem('rpcgSettings', JSON.stringify(settings));
+    }
+
+    /** Loads game settings from localStorage. */
+    function loadSettings() {
+        const savedSettings = localStorage.getItem('rpcgSettings');
+        if (savedSettings) {
+            const settings = JSON.parse(savedSettings);
+            // Apply loaded settings, ensuring defaults if a setting is missing
+            setGraphicsQuality(settings.graphics || 'medium');
+            setDifficulty(settings.difficulty || 'normal');
+            setShaderEffect(settings.shader || 'none');
+            setColorMode(settings.colorMode || 'rainbow'); // This will also manage the color update interval
+        } else {
+            // Apply initial defaults if no settings are saved
+            setGraphicsQuality('medium');
+            setDifficulty('normal');
+            setShaderEffect('none');
+            setColorMode('rainbow');
+        }
+        updateSettingsUI(); // Ensure UI reflects loaded settings
+    }
+
+    // --- Event Listener Handlers ---
+    /** Handles gameplay input (spacebar or touch). */
+    function handleGameplayInput() {
+        const currentTime = performance.now();
+        if (currentTime - lastGameplayInputTime < GAMEPLAY_INPUT_COOLDOWN) {
+            return; 
+        }
+        lastGameplayInputTime = currentTime;
+        checkHit();
+        document.querySelectorAll('.hud-item').forEach(item => {
+            item.classList.add('animate-pulse');
+            setTimeout(() => item.classList.remove('animate-pulse'), 300);
+        });
+    }
+
+    function handleKeyDown(e) {
+        if (e.code === 'Escape') {
+            if (gameState.phase === 'playing') {
+                gameState.phase = 'paused';
+                elements.pauseMenu.classList.remove('hidden');
+                elements.gameInfoText.classList.add('hidden'); 
+            } else if (gameState.phase === 'paused') {
+                gameState.phase = 'playing';
+                elements.pauseMenu.classList.add('hidden');
+            }
+            return;
+        }
+
+        if (e.code === 'Space') {
+            if (isSpacePressed) {
+                return;
+            }
+            isSpacePressed = true;
+            
+            if (gameState.phase === 'menu') {
+                elements.startMenu.classList.add('hidden');
+                elements.introAnimationText.classList.remove('hidden');
+                elements.introAnimationText.classList.add('animate-intro'); // Start animation
+                gameState.phase = 'introAnimation';
+                gameState.introAnimationStartTime = gameState.globalTime;
+                // Game start logic will be handled after intro animation completes
+            } else if (gameState.phase === 'playing') {
+                handleGameplayInput(); // Call centralized gameplay input handler
+            }
+            e.preventDefault();
+        }
+    }
+
+    function handleKeyUp(e) {
+        if (e.code === 'Space') {
+            isSpacePressed = false;
+        }
+    }
+
+    function handleTouch(e) {
+        if (gameState.phase === 'playing') {
+            e.preventDefault(); // Prevent default touch behavior (e.g., scrolling, zooming)
+            handleGameplayInput(); // Call centralized gameplay input handler
+        } else if (gameState.phase === 'menu') {
+             // Handle touch on play button in menu
+            if (e.target === elements.playButton) {
+                elements.startMenu.classList.add('hidden');
+                elements.introAnimationText.classList.remove('hidden');
+                elements.introAnimationText.classList.add('animate-intro'); // Start animation
+                gameState.phase = 'introAnimation';
+                gameState.introAnimationStartTime = gameState.globalTime;
+                e.preventDefault();
+            }
+        }
+    }
+
+    // --- Event Listener Attachments ---
+    function setupEventListeners() {
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        document.body.addEventListener('touchstart', handleTouch);
+    }
+
+    // Helper function to attach both click and touchstart listeners to buttons
+    function attachButtonListeners(buttonElement, handlerFunction) {
+        buttonElement.addEventListener('click', handlerFunction);
+        buttonElement.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent default touch behavior (e.g., ghost clicks)
+            handlerFunction(e); // Execute the button's action
+        });
+    }
+
+    // Attach listeners to main menu buttons
+    attachButtonListeners(elements.playButton, () => {
+        elements.startMenu.classList.add('hidden');
+        elements.introAnimationText.classList.remove('hidden');
+        elements.introAnimationText.classList.add('animate-intro'); // Start animation
+        gameState.phase = 'introAnimation';
+        gameState.introAnimationStartTime = gameState.globalTime;
+    });
+    attachButtonListeners(elements.settingsButton, () => {
+        elements.startMenu.classList.add('hidden');
+        elements.settingsMenu.classList.remove('hidden');
+        gameState.phase = 'settings';
+        updateSettingsUI();
+    });
+    attachButtonListeners(elements.backToMainMenuButton, () => {
+        elements.settingsMenu.classList.add('hidden');
+        elements.startMenu.classList.remove('hidden');
+        gameState.phase = 'menu';
+        resetGameStats(); // Reset stats when going back to main menu
+        showGameInfoText(); // Show info text when returning to main menu
+    });
+    attachButtonListeners(elements.aboutButton, () => {
+        customAlert('Acerca de', 'Juego de Ritmo Psico Minimalista\nDesarrollado con amor y colores pastel.');
+    });
+
+    // Attach listeners to pause menu buttons
+    attachButtonListeners(elements.continueButton, () => {
+        gameState.phase = 'playing';
+        elements.pauseMenu.classList.add('hidden');
+    });
+    attachButtonListeners(elements.restartButton, () => {
+        elements.pauseMenu.classList.add('hidden');
+        elements.scoreScreen.classList.add('hidden'); // Hide score screen if restarting from there
+        elements.introAnimationText.classList.remove('hidden'); // Show intro text again
+        elements.introAnimationText.classList.add('animate-intro'); // Start animation
+        gameState.phase = 'introAnimation'; // Go through intro animation again
+        gameState.introAnimationStartTime = gameState.globalTime;
+    });
+    attachButtonListeners(elements.exitToMenuButton, () => {
+        elements.pauseMenu.classList.add('hidden');
+        elements.startMenu.classList.remove('hidden');
+        gameState.phase = 'menu';
+        resetGameStats(); // Reset stats when going back to main menu
+        showGameInfoText(); // Show info text when returning to main menu
+    });
+
+    // Attach listener to custom alert close button
+    attachButtonListeners(elements.customAlertCloseButton, hideCustomAlert);
+
+    // Attach listeners to graphics settings buttons
+    attachButtonListeners(elements.graphicsLow, () => setGraphicsQuality('low'));
+    attachButtonListeners(elements.graphicsMedium, () => setGraphicsQuality('medium'));
+    attachButtonListeners(elements.graphicsHigh, () => setGraphicsQuality('high'));
+
+    // Attach listeners to difficulty settings buttons
+    attachButtonListeners(elements.difficultyEasy, () => setDifficulty('easy'));
+    attachButtonListeners(elements.difficultyNormal, () => setDifficulty('normal'));
+    attachButtonListeners(elements.difficultyHard, () => setDifficulty('hard'));
+
+    // Attach listeners to shader settings buttons
+    attachButtonListeners(elements.shaderOff, () => setShaderEffect('none'));
+    attachButtonListeners(elements.shaderInvert, () => setShaderEffect('invert'));
+    attachButtonListeners(elements.shaderChromaticGlow, () => setShaderEffect('chromatic_glow'));
+
+    // Attach listeners to new color mode buttons
+    attachButtonListeners(elements.colorModePerRound, () => setColorMode('per_round'));
+    attachButtonListeners(elements.colorModeRainbow, () => setColorMode('rainbow'));
+
+    // Attach listener for Play Again button
+    attachButtonListeners(elements.playAgainButton, () => {
+        elements.scoreScreen.classList.add('hidden');
+        elements.startMenu.classList.remove('hidden');
+        gameState.phase = 'menu';
+        resetGameStats();
+        showGameInfoText();
+    });
+
+    // --- Initialization ---
+    setCanvasSize(); // Set initial canvas size and initialize background squares
+    loadSettings(); // Load settings from localStorage on startup
+    setupEventListeners(); // Setup global event listeners
+    requestAnimationFrame(draw); // Start animation loop
+  </script>
+</body>
+
+</html>
