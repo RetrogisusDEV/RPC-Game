@@ -639,9 +639,9 @@
 
     // --- Utility Functions ---
     /**
-     * Shows a custom alert modal with a title and message.
-     * @param {string} title - The title of the alert.
-     * @param {string} message - The message content of the alert.
+     * Muestra un modal de alerta personalizado con un título y un mensaje.
+     * @param {string} title - El título de la alerta.
+     * @param {string} message - El contenido del mensaje de la alerta.
      */
     function customAlert(title, message) {
         elements.customAlertTitle.textContent = title;
@@ -649,15 +649,15 @@
         elements.customAlertModal.style.display = 'flex';
     }
 
-    /** Hides the custom alert modal. */
+    /** Oculta el modal de alerta personalizado. */
     function hideCustomAlert() {
         elements.customAlertModal.style.display = 'none';
     }
 
     /**
-     * Converts a hex color string to an array of normalized RGB values [r, g, b].
-     * @param {string} hex - The hex color string (e.g., "#RRGGBB").
-     * @returns {Array<number>} An array containing the RGB values from 0 to 1.
+     * Convierte una cadena de color hexadecimal en un array de valores RGB normalizados [r, g, b].
+     * @param {string} hex - La cadena de color hexadecimal (ej. "#RRGGBB").
+     * @returns {Array<number>} Un array que contiene los valores RGB de 0 a 1.
      */
     function hexToRgbNormalized(hex) {
         const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -667,9 +667,9 @@
     }
 
     /**
-     * Converts a hex color string to an RGB string (e.g., "255,0,255").
-     * @param {string} hex - The hex color string (e.g., "#RRGGBB").
-     * @returns {string} The RGB string.
+     * Convierte una cadena de color hexadecimal en una cadena RGB (ej. "255,0,255").
+     * @param {string} hex - La cadena de color hexadecimal (ej. "#RRGGBB").
+     * @returns {string} La cadena RGB.
      */
     function hexToRgb(hex) {
       const r = parseInt(hex.slice(1, 3), 16);
@@ -679,9 +679,9 @@
     }
 
     /**
-     * Retrieves a CSS variable value and converts it to an RGB string for canvas drawing.
-     * @param {string} cssVar - The name of the CSS variable (e.g., '--main-border-color').
-     * @returns {string} The RGB string (e.g., "174,202,210").
+     * Recupera el valor de una variable CSS y lo convierte en una cadena RGB para dibujar en el canvas.
+     * @param {string} cssVar - El nombre de la variable CSS (ej. '--main-border-color').
+     * @returns {string} La cadena RGB (ej. "174,202,210").
      */
     function var_to_rgb(cssVar) {
         const computedStyle = getComputedStyle(document.body);
@@ -689,76 +689,76 @@
         if (color.startsWith('#')) {
             return hexToRgb(color);
         }
-        // If it's already in rgb() or rgba() format, extract only RGB values
+        // Si ya está en formato rgb() o rgba(), extrae solo los valores RGB
         if (color.startsWith('rgb(') || color.startsWith('rgba(')) {
             return color.match(/\d+/g).slice(0,3).join(',');
         }
-        return '255,255,255'; // Default to white if not recognized
+        return '255,255,255'; // Por defecto, blanco si no se reconoce
     }
 
-    /** Updates the current color index for cycling through pastel colors. */
+    /** Actualiza el índice de color actual para ciclar a través de los colores pastel. */
     function updatePsychedelicColors() {
-      // This function will only be called by setInterval if colorMode is 'rainbow'
+      // Esta función solo será llamada por setInterval si colorMode es 'rainbow'
       currentColorIndex = (currentColorIndex + 1) % PASTEL_COLORS.length;
     }
 
-    /** Initializes (or re-initializes) the background squares and lines. */
+    /** Inicializa (o reinicializa) los cuadrados y líneas de fondo. */
     function initializeBackgroundElements() {
         backgroundSquares = [];
         backgroundLines = [];
 
-        // Background elements should cover the entire viewport
+        // Los elementos de fondo deben cubrir todo el viewport
         const bgAreaWidth = window.innerWidth;
         const bgAreaHeight = window.innerHeight;
 
-        // Initialize background squares
+        // Inicializa los cuadrados de fondo
         for (let i = 0; i < NUM_BACKGROUND_SQUARES; i++) {
             backgroundSquares.push({
                 x: Math.random() * bgAreaWidth,
                 y: Math.random() * bgAreaHeight,
                 size: Math.random() * 50 + 20,
                 rotation: Math.random() * Math.PI * 2,
-                rotationSpeed: (Math.random() - 0.5) * 0.00005, // Slower rotation
-                moveSpeedX: (Math.random() - 0.5) * 0.005, // Slower movement for parallax
+                rotationSpeed: (Math.random() - 0.5) * 0.00005, // Rotación más lenta
+                moveSpeedX: (Math.random() - 0.5) * 0.005, // Movimiento más lento para paralaje
                 moveSpeedY: (Math.random() - 0.5) * 0.005,
                 color: PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)],
-                alpha: Math.random() * 0.1 + 0.03 // Very low opacity for background
+                alpha: Math.random() * 0.1 + 0.03 // Opacidad muy baja para el fondo
             });
         }
 
-        // Initialize background lines
+        // Inicializa las líneas de fondo
         for (let i = 0; i < NUM_BACKGROUND_LINES; i++) {
             backgroundLines.push({
                 x: Math.random() * bgAreaWidth,
                 y: Math.random() * bgAreaHeight,
                 length: Math.random() * 100 + 50,
                 angle: Math.random() * Math.PI * 2,
-                rotationSpeed: (Math.random() - 0.5) * 0.0001, // Slightly faster rotation than squares
-                moveSpeed: Math.random() * 0.08 + 0.03, // Faster movement than squares for more parallax
+                rotationSpeed: (Math.random() - 0.5) * 0.0001, // Rotación ligeramente más rápida que los cuadrados
+                moveSpeed: Math.random() * 0.08 + 0.03, // Movimiento más rápido que los cuadrados para más paralaje
                 color: PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)],
-                alpha: Math.random() * 0.08 + 0.02 // Very low opacity
+                alpha: Math.random() * 0.08 + 0.02 // Opacidad muy baja
             });
         }
     }
 
     // --- Initialization Functions ---
-    /** Adjusts canvas size responsively and initializes background elements. */
+    /** Ajusta el tamaño del canvas de forma responsiva e inicializa los elementos de fondo. */
     const setCanvasSize = () => {
       const dpr = window.devicePixelRatio || 1;
 
-      // Set dimensions for the main game canvas to cover the whole window
+      // Establece las dimensiones para el canvas principal del juego para cubrir toda la ventana
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
       
       if (gameState.currentRenderer === '2d' && ctx) {
-        ctx.scale(dpr, dpr); // Scale context for high-DPI screens
+        ctx.scale(dpr, dpr); // Escala el contexto para pantallas de alta DPI
       } else if (gl) {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       }
 
-      // Initialize or resize the off-screen canvas for shaders
+      // Inicializa o redimensiona el canvas fuera de pantalla para los shaders
       if (gameState.currentRenderer === '2d' && !tempCanvas) {
         tempCanvas = document.createElement('canvas');
         tempCtx = tempCanvas.getContext('2d');
@@ -768,54 +768,54 @@
         tempCanvas.height = canvas.height;
       }
 
-      // mainCircle.x and mainCircle.y are centered relative to the full canvas
+      // mainCircle.x y mainCircle.y están centrados en relación con el canvas completo
       mainCircle.x = window.innerWidth / 2;
       mainCircle.y = window.innerHeight / 2;
       
-      // mainCircle.radius scales with the minimum dimension of the window
+      // mainCircle.radius escala con la dimensión mínima de la ventana
       const gameAreaSize = Math.min(window.innerWidth, window.innerHeight) * 0.9;
-      mainCircle.radius = gameAreaSize * 0.45; // Larger orbit
-      gameState.player.radius = mainCircle.radius * 0.08; // Player size relative to orbit
+      mainCircle.radius = gameAreaSize * 0.45; // Órbita más grande
+      gameState.player.radius = mainCircle.radius * 0.08; // Tamaño del jugador en relación con la órbita
 
-      initializeBackgroundElements(); // Re-initialize background elements for the full canvas
+      initializeBackgroundElements(); // Reinicializa los elementos de fondo para el canvas completo
     };
     
     // --- Game Logic Functions ---
     function startRound(roundIndex) {
       if (roundIndex >= rounds.length) {
-          // If all rounds are completed, go to the score screen
+          // Si todas las rondas están completas, ve a la pantalla de puntuación
           showScoreScreen();
           return;
       }
 
       const round = rounds[roundIndex];
-      // Reset only hit status for new round markers
+      // Reinicia solo el estado de golpeo para los nuevos marcadores de ronda
       gameState.activeMarkers = round.notes.map(angle => ({ angle, hit: false, originalAngle: angle }));
       elements.bpm.textContent = round.bpm;
       gameState.player.angle = 0;
       gameState.player.trail = [];
       gameState.currentRoundIndex = roundIndex;
 
-      // If "Per Round" color mode, set the color once for the round
+      // Si el modo de color es "Por Ronda", establece el color una vez para la ronda
       if (gameState.colorMode === 'per_round') {
-          currentColorIndex = Math.floor(Math.random() * PASTEL_COLORS.length); // Pick a random color for the round
+          currentColorIndex = Math.floor(Math.random() * PASTEL_COLORS.length); // Elige un color aleatorio para la ronda
       }
     }
 
     function endGame() {
-        // This function is now primarily for setting the phase to 'ended'
-        // The actual display of score/rank is handled by showScoreScreen()
+        // Esta función ahora es principalmente para establecer la fase en 'ended'
+        // La visualización real de la puntuación/rango se maneja mediante showScoreScreen()
         gameState.phase = 'ended'; 
-        gameState.comboFeedbackTexts = []; // Clear any floating combo texts
-        gameState.roundCompleteTexts = []; // Clear any round complete texts
-        updateHUD(); // Ensure HUD reflects final state
-        // No direct canvas drawing here, showScoreScreen will be called
+        gameState.comboFeedbackTexts = []; // Limpia cualquier texto de combo flotante
+        gameState.roundCompleteTexts = []; // Limpia cualquier texto de ronda completa
+        updateHUD(); // Asegura que el HUD refleje el estado final
+        // No hay dibujo directo en el canvas aquí, se llamará a showScoreScreen
     }
 
     /**
-     * Calculates the accuracy rank based on a percentage.
-     * @param {number} accuracyPercentage - The accuracy as a percentage (e.g., 95.5).
-     * @returns {string} The rank (e.g., "SX", "A").
+     * Calcula el rango de precisión basado en un porcentaje.
+     * @param {number} accuracyPercentage - La precisión como porcentaje (ej. 95.5).
+     * @returns {string} El rango (ej. "SX", "A").
      */
     function getAccuracyRank(accuracyPercentage) {
         if (accuracyPercentage === 100) return 'SX';
@@ -827,12 +827,12 @@
         return 'E';
     }
 
-    /** Displays the final score screen. */
+    /** Muestra la pantalla de puntuación final. */
     function showScoreScreen() {
         gameState.phase = 'scoreScreen';
         elements.finalScore.textContent = gameState.score;
         const accuracy = gameState.totalAttempts === 0 ? 100 : (gameState.totalHits / gameState.totalAttempts * 100);
-        gameState.finalAccuracyValue = accuracy.toFixed(1); // Store for display
+        gameState.finalAccuracyValue = accuracy.toFixed(1); // Almacena para mostrar
         elements.finalAccuracy.textContent = `${gameState.finalAccuracyValue}%`;
         elements.finalRank.textContent = getAccuracyRank(parseFloat(gameState.finalAccuracyValue));
         elements.scoreScreen.classList.remove('hidden');
@@ -842,8 +842,8 @@
         gameState.score = 0;
         gameState.totalHits = 0;
         gameState.totalAttempts = 0;
-        gameState.combo = 0; // Combo reset here (on new game start)
-        // Clear active feedback texts and reset pools
+        gameState.combo = 0; // Combo reiniciado aquí (al inicio de un nuevo juego)
+        // Limpia los textos de retroalimentación activos y reinicia los pools
         gameState.comboFeedbackTexts = [];
         gameState.roundCompleteTexts = [];
         gameState.hitFeedbackTexts = [];
@@ -857,7 +857,7 @@
 
 
     function checkHit() {
-      const currentAngle = (gameState.player.angle % 360 + 360) % 360; // Calculate current angle once
+      const currentAngle = (gameState.player.angle % 360 + 360) % 360; // Calcula el ángulo actual una vez
       gameState.totalAttempts++;
       let bestPrecision = BASE_PRECISION.MISS;
       let hitMarkerIndex = -1;
@@ -888,23 +888,23 @@
           createParticles(marker.originalAngle, bestPrecision.color, true);
           createHitFeedbackText(bestPrecision.text, bestPrecision.color);
 
-          // Combo system logic: Increment combo on successful hit
+          // Lógica del sistema de combo: Incrementa el combo en un golpe exitoso
           gameState.combo++;
-          if (gameState.combo > 1 && gameState.combo % 5 === 0) { // Show combo text every 5 hits
+          if (gameState.combo > 1 && gameState.combo % 5 === 0) { // Muestra el texto del combo cada 5 golpes
               createComboFeedbackText(`COMBO ${gameState.combo}!`, PASTEL_COLORS[currentColorIndex]);
           }
-          gameState.centralReelPulseScale = 1.1; // Start central reel pulse animation
+          gameState.centralReelPulseScale = 1.1; // Inicia la animación de pulso del carrete central
         } else {
-            // If it's a BAD hit or MISS, reset combo
+            // Si es un golpe MALO o FALLO, reinicia el combo
             gameState.combo = 0;
             createHitFeedbackText(bestPrecision.text, bestPrecision.color);
-            createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Red text for broken combo
+            createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Texto rojo para combo roto
         }
       } else {
-          // If no marker was hit (missed input, but no active marker was close enough), reset combo
+          // Si no se golpeó ningún marcador (entrada perdida, pero ningún marcador activo estaba lo suficientemente cerca), reinicia el combo
           gameState.combo = 0;
           createHitFeedbackText(BASE_PRECISION.MISS.text, BASE_PRECISION.MISS.color);
-          createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Red text for broken combo
+          createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Texto rojo para combo roto
       }
 
       updateHUD();
@@ -913,21 +913,21 @@
       if (allMarkersHit) {
         createRoundCompleteText(`RONDA ${gameState.currentRoundIndex + 1} COMPLETADA!`, PASTEL_COLORS[currentColorIndex]);
         gameState.phase = 'roundComplete';
-        gameState.nextRoundStartTime = gameState.globalTime + 2000; // 2 seconds delay
+        gameState.nextRoundStartTime = gameState.globalTime + 2000; // 2 segundos de retraso
       }
     }
 
     /**
-     * Calculates precision based on angle difference and current difficulty setting.
-     * @param {number} angleDiff - The absolute difference in angle between player and marker.
-     * @returns {object} The precision level (NANO, PERFECT, etc.).
+     * Calcula la precisión en función de la diferencia de ángulo y la configuración de dificultad actual.
+     * @param {number} angleDiff - La diferencia absoluta en el ángulo entre el jugador y el marcador.
+     * @returns {object} El nivel de precisión (NANO, PERFECTO, etc.).
      */
     function calculatePrecision(angleDiff) {
         const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[gameState.currentDifficulty];
         
         for (const key in BASE_PRECISION) {
             const precisionLevel = BASE_PRECISION[key];
-            // Apply multiplier only to thresholds that are not Infinity (i.e., not MISS)
+            // Aplica el multiplicador solo a los umbrales que no son Infinito (es decir, no FALLO)
             if (precisionLevel.threshold !== Infinity && angleDiff <= precisionLevel.threshold * difficultyMultiplier) {
                 return precisionLevel;
             }
@@ -936,14 +936,14 @@
     }
 
     /**
-     * Creates visual particles at a given angle and color, reusing from a pool.
-     * @param {number} angle - The angle on the circle where particles should appear.
-     * @param {string} color - The color of the particles (hex string).
-     * @param {boolean} isSquare - True if particles should be square, false for circular.
+     * Crea partículas visuales en un ángulo y color dados, reutilizando de un pool.
+     * @param {number} angle - El ángulo en el círculo donde deben aparecer las partículas.
+     * @param {string} color - El color de las partículas (cadena hexadecimal).
+     * @param {boolean} isSquare - Verdadero si las partículas deben ser cuadradas, falso para circulares.
      */
     function createParticles(angle, color, isSquare = false) {
       if (gameState.currentRenderer === 'webgl') {
-          // TODO: Implement WebGL particles
+          // TODO: Implementar partículas WebGL
           return;
       }
       const radian = angle * DEG_TO_RAD;
@@ -952,7 +952,7 @@
       const y = mainCircle.y + Math.sin(radian) * spawnRadius;
 
       for (let i = 0; i < PARTICLES_COUNT; i++) {
-        // Get a particle from the pool
+        // Obtiene una partícula del pool
         const particle = particlePool[nextAvailableParticleIndex];
         nextAvailableParticleIndex = (nextAvailableParticleIndex + 1) % MAX_PARTICLES;
 
@@ -960,7 +960,7 @@
         const angleOffset = (Math.random() - 0.5) * Math.PI / 2;
         const particleAngle = radian + angleOffset;
         
-        // Reset and set properties for the recycled particle
+        // Reinicia y establece las propiedades para la partícula reciclada
         particle.x = x;
         particle.y = y;
         particle.vx = Math.cos(particleAngle) * speed;
@@ -970,18 +970,18 @@
         particle.color = color;
         particle.isSquare = isSquare;
 
-        gameState.particles.push(particle); // Add to active particles
+        gameState.particles.push(particle); // Agrega a las partículas activas
       }
     }
 
     /**
-     * Creates a floating text feedback (e.g., "PERFECT!"), reusing from a pool.
-     * @param {string} text - The text to display.
-     * @param {string} color - The color of the text (hex string).
+     * Crea un texto flotante de retroalimentación (ej. "¡PERFECTO!"), reutilizando de un pool.
+     * @param {string} text - El texto a mostrar.
+     * @param {string} color - El color del texto (cadena hexadecimal).
      */
     function createHitFeedbackText(text, color) {
         if (gameState.currentRenderer === 'webgl') {
-            // TODO: Implement WebGL text rendering
+            // TODO: Implementar renderizado de texto WebGL
             return;
         }
         const textObj = hitTextPool[nextAvailableHitTextIndex];
@@ -998,9 +998,9 @@
     }
 
     /**
-     * Creates a floating combo text (e.g., "COMBO X!"), reusing from a pool.
-     * @param {string} text - The text to display.
-     * @param {string} color - The color of the text (hex string).
+     * Crea un texto flotante de combo (ej. "¡COMBO X!"), reutilizando de un pool.
+     * @param {string} text - El texto a mostrar.
+     * @param {string} color - El color del texto (cadena hexadecimal).
      */
     function createComboFeedbackText(text, color) {
         if (gameState.currentRenderer === 'webgl') return;
@@ -1018,9 +1018,9 @@
     }
 
     /**
-     * Creates a floating round complete text (e.g., "ROUND X COMPLETED!"), reusing from a pool.
-     * @param {string} text - The text to display.
-     * @param {string} color - The color of the text (hex string).
+     * Crea un texto flotante de ronda completada (ej. "¡RONDA X COMPLETADA!"), reutilizando de un pool.
+     * @param {string} text - El texto a mostrar.
+     * @param {string} color - El color del texto (cadena hexadecimal).
      */
     function createRoundCompleteText(text, color) {
         if (gameState.currentRenderer === 'webgl') return;
@@ -1037,7 +1037,7 @@
         gameState.roundCompleteTexts.push(textObj);
     }
 
-    /** Updates the HUD display (score, BPM, accuracy, combo). */
+    /** Actualiza la visualización del HUD (puntuación, BPM, precisión, combo). */
     function updateHUD() {
       elements.score.textContent = gameState.score;
       const accuracy = gameState.totalAttempts === 0 ? 100 : (gameState.totalHits / gameState.totalAttempts * 100).toFixed(1);
@@ -1045,7 +1045,7 @@
       elements.combo.textContent = gameState.combo;
     }
 
-    /** Draws the single central reel (minimalist cassette center) with a pulse effect. */
+    /** Dibuja el único carrete central (centro de cassette minimalista) con un efecto de pulso. */
     function drawCentralReel() {
         // Change: Inner lines color from white to a variable for flexibility,
         // but keeping it white for now as per "cambio de color al circulo exterior a blanco"
@@ -1053,38 +1053,38 @@
 
         let reelRadius = mainCircle.radius * 0.7; 
         
-        // Apply pulse effect for central reel
+        // Aplica el efecto de pulso para el carrete central
         if (gameState.centralReelPulseScale > 1) {
             reelRadius *= gameState.centralReelPulseScale;
-            // Decay the pulse scale back to 1 over time
-            gameState.centralReelPulseScale -= (gameState.centralReelPulseScale - 1) * 0.3; // Faster decay
-            if (gameState.centralReelPulseScale < 1.005) gameState.centralReelPulseScale = 1; // Snap to 1
+            // Disminuye la escala del pulso de vuelta a 1 con el tiempo
+            gameState.centralReelPulseScale -= (gameState.centralReelPulseScale - 1) * 0.3; // Decaimiento más rápido
+            if (gameState.centralReelPulseScale < 1.005) gameState.centralReelPulseScale = 1; // Ajusta a 1
         }
 
         ctx.save();
         ctx.translate(mainCircle.x, mainCircle.y);
-        ctx.rotate(gameState.globalTime * 0.001); // Slowly spin the central reel
+        ctx.rotate(gameState.globalTime * 0.001); // Gira lentamente el carrete central
 
-        // Radial gradient for a subtle glow effect in the center
+        // Gradiente radial para un sutil efecto de brillo en el centro
         const gradientRadius = reelRadius * 0.8;
         const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, gradientRadius);
-        glowGradient.addColorStop(0, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.3)`); // Inner glow
+        glowGradient.addColorStop(0, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.3)`); // Brillo interior
         glowGradient.addColorStop(0.5, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.1)`);
-        glowGradient.addColorStop(1, 'rgba(0,0,0,0)'); // Outer transparent
+        glowGradient.addColorStop(1, 'rgba(0,0,0,0)'); // Transparente exterior
 
         ctx.fillStyle = glowGradient;
         ctx.beginPath();
         ctx.arc(0, 0, gradientRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Outer circle of the reel (border only, no fill)
+        // Círculo exterior del carrete (solo borde, sin relleno)
         ctx.beginPath();
         ctx.arc(0, 0, reelRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = '#FFFFFF'; // White border for the reel
-        ctx.lineWidth = 6; // Increased border thickness for the reel (from 4 to 6)
+        ctx.strokeStyle = '#FFFFFF'; // Borde blanco para el carrete
+        ctx.lineWidth = 6; // Grosor del borde aumentado para el carrete (de 4 a 6)
         ctx.stroke();
 
-        // Inner spokes (simulating reel teeth)
+        // Radios interiores (simulando dientes de carrete)
         const numSpokes = 8;
         for (let i = 0; i < numSpokes; i++) {
             const spokeAngle = (Math.PI * 2 / numSpokes) * i;
@@ -1092,64 +1092,64 @@
             ctx.moveTo(0, 0);
             ctx.lineTo(Math.cos(spokeAngle) * reelRadius, Math.sin(spokeAngle) * reelRadius);
             ctx.strokeStyle = innerLineColor;
-            ctx.lineWidth = 3; // Increased line thickness for spokes (from 2 to 3)
+            ctx.lineWidth = 3; // Grosor de línea aumentado para los radios (de 2 a 3)
             ctx.stroke();
         }
 
         ctx.restore();
     }
 
-    /** Draws small triangles on the main circle's inner border. */
+    /** Dibuja pequeños triángulos en el borde interior del círculo principal. */
     function drawInnerBorderTriangles() {
         const numTriangles = TRIANGLE_COUNT_MAIN_CIRCLE;
         const angleStep = (Math.PI * 2) / numTriangles;
-        const triangleBase = mainCircle.radius * (TRIANGLE_SIZE_MAIN + 0.01); // Slightly larger base
+        const triangleBase = mainCircle.radius * (TRIANGLE_SIZE_MAIN + 0.01); // Base ligeramente más grande
         const triangleHeight = triangleBase * Math.sqrt(3) / 2;
 
         for (let i = 0; i < numTriangles; i++) {
             const angle = i * angleStep;
-            // Triangle center is relative to the player's orbit radius
+            // El centro del triángulo es relativo al radio de órbita del jugador
             const cx = mainCircle.x + Math.cos(angle) * (mainCircle.radius - triangleHeight / 2);
             const cy = mainCircle.y + Math.sin(angle) * (mainCircle.radius - triangleHeight / 2);
 
-            ctx.save(); // Save context state
-            ctx.translate(cx, cy); // Move origin to triangle center
-            ctx.rotate(angle + Math.PI / 2); // Rotate to point towards circle center
+            ctx.save(); // Guarda el estado del contexto
+            ctx.translate(cx, cy); // Mueve el origen al centro del triángulo
+            ctx.rotate(angle + Math.PI / 2); // Gira para apuntar hacia el centro del círculo
 
             ctx.beginPath();
-            ctx.moveTo(0, -triangleHeight / 2); // Top of triangle
-            ctx.lineTo(-triangleBase / 2, triangleHeight / 2); // Bottom-left corner
-            ctx.lineTo(triangleBase / 2, triangleHeight / 2); // Bottom-right corner
+            ctx.moveTo(0, -triangleHeight / 2); // Parte superior del triángulo
+            ctx.lineTo(-triangleBase / 2, triangleHeight / 2); // Esquina inferior izquierda
+            ctx.lineTo(triangleBase / 2, triangleHeight / 2); // Esquina inferior derecha
             ctx.closePath();
 
-            ctx.fillStyle = PASTEL_COLORS[(i + currentColorIndex) % PASTEL_COLORS.length]; // Cycle colors
+            ctx.fillStyle = PASTEL_COLORS[(i + currentColorIndex) % PASTEL_COLORS.length]; // Cicla los colores
             ctx.fill();
-            ctx.restore(); // Restore context state
+            ctx.restore(); // Restaura el estado del contexto
         }
     }
 
-    /** Draws the markers (target balls) for the player to hit. */
+    /** Dibuja los marcadores (bolas objetivo) para que el jugador los golpee. */
     function drawMarkers() {
       const centerX = mainCircle.x;
       const centerY = mainCircle.y;
       const radius = mainCircle.radius;
-      const markerRadius = radius * 0.05; // Larger active marker size
+      const markerRadius = radius * 0.05; // Tamaño del marcador activo más grande
         
       gameState.activeMarkers.forEach(marker => {
         if (marker.hit) {
             ctx.beginPath();
             ctx.arc(
-                centerX + Math.cos(marker.originalAngle * DEG_TO_RAD) * radius, // Use DEG_TO_RAD
-                centerY + Math.sin(marker.originalAngle * DEG_TO_RAD) * radius, // Use DEG_TO_RAD
-                mainCircle.radius * 0.035, // Slightly larger when hit for visibility
+                centerX + Math.cos(marker.originalAngle * DEG_TO_RAD) * radius, // Usa DEG_TO_RAD
+                centerY + Math.sin(marker.originalAngle * DEG_TO_RAD) * radius, // Usa DEG_TO_RAD
+                mainCircle.radius * 0.035, // Ligeramente más grande cuando se golpea para visibilidad
                 0, Math.PI * 2
             );
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Faded white for hit markers
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Blanco desvanecido para marcadores golpeados
             ctx.fill();
             return;
         }
 
-        const radian = marker.angle * DEG_TO_RAD; // Use DEG_TO_RAD
+        const radian = marker.angle * DEG_TO_RAD; // Usa DEG_TO_RAD
         const x = centerX + Math.cos(radian) * radius;
         const y = centerY + Math.sin(radian) * radius;
 
@@ -1157,18 +1157,18 @@
         ctx.arc(x, y, markerRadius, 0, Math.PI * 2);
         ctx.fillStyle = PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length];
         ctx.fill();
-        ctx.strokeStyle = var_to_rgb('--main-border-color'); // Consistent border color
-        ctx.lineWidth = 4; // Thicker border
+        ctx.strokeStyle = var_to_rgb('--main-border-color'); // Color de borde consistente
+        ctx.lineWidth = 4; // Borde más grueso
         ctx.stroke();
       });
     }
 
-    /** Updates the player's angle and trail. */
+    /** Actualiza el ángulo y el rastro del jugador. */
     function updatePlayer(deltaTime) {
       const round = rounds[gameState.currentRoundIndex];
       if (!round) return;
 
-      // BPM Logic: Each BPM now equals half a circle rotation (180 degrees)
+      // Lógica de BPM: Cada BPM ahora equivale a media rotación de círculo (180 grados)
       const degreesPerBeat = 180 / round.beatsPerRotation;
       gameState.player.angle += (degreesPerBeat * (round.bpm / 60)) * (deltaTime / 1000);
 
@@ -1183,12 +1183,12 @@
       }
     }
 
-    /** Draws the player's trail. */
+    /** Dibuja el rastro del jugador. */
     function drawTrail() {
       for (let i = 0; i < gameState.player.trail.length; i++) {
         const pos = gameState.player.trail[i];
         const alpha = (i / TRAIL_LENGTH) * 0.7;
-        const radian = pos.angle * DEG_TO_RAD; // Use DEG_TO_RAD
+        const radian = pos.angle * DEG_TO_RAD; // Usa DEG_TO_RAD
         const x = mainCircle.x + Math.cos(radian) * mainCircle.radius;
         const y = mainCircle.y + Math.sin(radian) * mainCircle.radius;
         const size = gameState.player.radius * (0.1 + (i / TRAIL_LENGTH * 0.8));
@@ -1200,9 +1200,9 @@
       }
     }
 
-    /** Draws the player's circle. */
+    /** Dibuja el círculo del jugador. */
     function drawPlayer() {
-      const radian = gameState.player.angle * DEG_TO_RAD; // Use DEG_TO_RAD
+      const radian = gameState.player.angle * DEG_TO_RAD; // Usa DEG_TO_RAD
       const x = mainCircle.x + Math.cos(radian) * mainCircle.radius;
       const y = mainCircle.y + Math.sin(radian) * mainCircle.radius;
 
@@ -1210,12 +1210,12 @@
       ctx.arc(x, y, gameState.player.radius, 0, Math.PI * 2);
       ctx.fillStyle = PASTEL_COLORS[currentColorIndex];
       ctx.fill();
-      ctx.strokeStyle = var_to_rgb('--main-border-color'); // Consistent border color
-      ctx.lineWidth = 4; // Thicker border
+      ctx.strokeStyle = var_to_rgb('--main-border-color'); // Color de borde consistente
+      ctx.lineWidth = 4; // Borde más grueso
       ctx.stroke();
     }
 
-    /** Draws and updates particles. */
+    /** Dibuja y actualiza las partículas. */
     function drawParticles() {
       gameState.particles = gameState.particles.filter(particle => {
         particle.x += particle.vx;
@@ -1236,10 +1236,10 @@
       });
     }
 
-    /** Draws and updates hit feedback texts. */
-    // NOTE: The three feedback text drawing functions are very similar.
-    // They are kept separate for clarity as their animation logic (font size, movement) differs slightly.
-    // A single generic function could be made, but it would add complexity.
+    /** Dibuja y actualiza los textos de retroalimentación de golpe. */
+    // NOTA: Las tres funciones de dibujo de texto de retroalimentación son muy similares.
+    // Se mantienen separadas para mayor claridad, ya que su lógica de animación (tamaño de fuente, movimiento) difiere ligeramente.
+    // Se podría hacer una única función genérica, pero agregaría complejidad.
     function drawHitFeedbackTexts(deltaTime) {
       gameState.hitFeedbackTexts = gameState.hitFeedbackTexts.filter(textObj => {
         const elapsed = gameState.globalTime - textObj.startTime;
@@ -1258,16 +1258,16 @@
       });
     }
 
-    /** Draws and updates combo feedback texts. */
+    /** Dibuja y actualiza los textos de retroalimentación de combo. */
     function drawComboFeedbackTexts(deltaTime) {
         gameState.comboFeedbackTexts = gameState.comboFeedbackTexts.filter(textObj => {
             const elapsed = gameState.globalTime - textObj.startTime;
             textObj.alpha = 1 - (elapsed / COMBO_TEXT_LIFETIME);
-            textObj.y -= deltaTime * 0.04; // Slightly slower float
+            textObj.y -= deltaTime * 0.04; // Flotación ligeramente más lenta
 
             if (textObj.alpha > 0) {
                 ctx.fillStyle = `rgba(${hexToRgb(textObj.color)}, ${textObj.alpha})`;
-                ctx.font = `bold ${30 * textObj.alpha + 15}px Inter`; // Larger, fading font
+                ctx.font = `bold ${30 * textObj.alpha + 15}px Inter`; // Fuente más grande y desvanecida
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(textObj.text, textObj.x, textObj.y);
@@ -1277,16 +1277,15 @@
         });
     }
 
-    /** Draws and updates round complete texts. */
+    /** Dibuja y actualiza los textos de ronda completada. */
     function drawRoundCompleteTexts(deltaTime) {
         gameState.roundCompleteTexts = gameState.roundCompleteTexts.filter(textObj => {
             const elapsed = gameState.globalTime - textObj.startTime;
             textObj.alpha = 1 - (elapsed / ROUND_COMPLETE_TEXT_LIFETIME);
-            // Keep the text centered, don't move it vertically
-
+            // Mantiene el texto centrado, no lo mueve verticalmente
             if (textObj.alpha > 0) {
                 ctx.fillStyle = `rgba(${hexToRgb(textObj.color)}, ${textObj.alpha})`;
-                ctx.font = `bold ${40 * textObj.alpha + 20}px Inter`; // Large, fading font
+                ctx.font = `bold ${40 * textObj.alpha + 20}px Inter`; // Fuente grande y desvanecida
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(textObj.text, textObj.x, textObj.y);
@@ -1297,23 +1296,23 @@
     }
 
     /**
-     * Draws and updates the background squares and lines on the main canvas.
-     * @param {number} deltaTime - Time elapsed since the last frame.
+     * Dibuja y actualiza los cuadrados y líneas de fondo en el canvas principal.
+     * @param {number} deltaTime - Tiempo transcurrido desde el último fotograma.
      */
     function drawBackgroundElements(deltaTime) {
         ctx.save();
         
-        // Get current canvas dimensions for wrapping elements
+        // Obtiene las dimensiones actuales del canvas para envolver los elementos
         const currentCanvasWidth = window.innerWidth;
         const currentCanvasHeight = window.innerHeight;
 
-        // Draw and update squares
+        // Dibuja y actualiza los cuadrados
         backgroundSquares.forEach(square => {
             square.x += square.moveSpeedX * deltaTime;
             square.y += square.moveSpeedY * deltaTime;
             square.rotation += square.rotationSpeed * deltaTime;
 
-            // Wrap squares if they go off canvas bounds
+            // Envuelve los cuadrados si se salen de los límites del canvas
             if (square.x > currentCanvasWidth + square.size) square.x = -square.size;
             if (square.x < -square.size) square.x = currentCanvasWidth + square.size;
             if (square.y > currentCanvasHeight + square.size) square.y = -square.size;
@@ -1327,14 +1326,14 @@
             ctx.restore();
         });
 
-        // Draw and update lines
+        // Dibuja y actualiza las líneas
         backgroundLines.forEach(line => {
-            // Lines move based on their angle and speed for a consistent direction
+            // Las líneas se mueven en función de su ángulo y velocidad para una dirección consistente
             line.x += Math.cos(line.angle) * line.moveSpeed * deltaTime;
             line.y += Math.sin(line.angle) * line.moveSpeed * deltaTime;
-            line.angle += line.rotationSpeed * deltaTime; // Lines can also slowly rotate
+            line.angle += line.rotationSpeed * deltaTime; // Las líneas también pueden rotar lentamente
 
-            // Wrap lines
+            // Envuelve las líneas
             if (line.x > currentCanvasWidth + line.length) line.x = -line.length;
             if (line.x < -line.length) line.x = currentCanvasWidth + line.length;
             if (line.y > currentCanvasHeight + line.length) line.y = -line.length;
@@ -1344,7 +1343,7 @@
             ctx.translate(line.x, line.y);
             ctx.rotate(line.angle);
             ctx.strokeStyle = `rgba(${hexToRgb(line.color)}, ${line.alpha})`;
-            ctx.lineWidth = 2; // Fixed line width
+            ctx.lineWidth = 2; // Ancho de línea fijo
             ctx.beginPath();
             ctx.moveTo(-line.length / 2, 0);
             ctx.lineTo(line.length / 2, 0);
@@ -1355,52 +1354,56 @@
         ctx.restore();
     }
 
-    /** Applies the Chromatic Aberration and Motion Glow shader effect. */
+    /** Aplica el efecto de shader de Aberración Cromática y Brillo de Movimiento. */
     function applyChromaticGlowShader() {
-        // Verify if the shader is active before doing any calculation
+        // Verifica si el shader está activo antes de realizar cualquier cálculo
         if (gameState.activeShader !== 'chromatic_glow') return;
         
-        // Ensure tempCanvas and tempCtx are initialized and sized correctly
+        // Asegura que tempCanvas y tempCtx estén inicializados y dimensionados correctamente
         if (!tempCanvas || tempCanvas.width !== canvas.width || tempCanvas.height !== canvas.height) {
-            setCanvasSize(); // Reinitialize if needed
+            setCanvasSize(); // Reinicializa si es necesario
         }
 
-        // Add a check here for the main canvas dimensions before drawing
+        // Agrega una verificación aquí para las dimensiones del canvas principal antes de dibujar
         if (canvas.width === 0 || canvas.height === 0) {
-            console.error("Canvas dimensions are zero, cannot apply shader.");
-            return; // Prevent drawing if canvas is invalid
+            console.error("Las dimensiones del canvas son cero, no se puede aplicar el shader.");
+            return; // Evita dibujar si el canvas no es válido
         }
 
         tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-        tempCtx.drawImage(canvas, 0, 0); // Draw the current main canvas content to temp canvas
+        tempCtx.drawImage(canvas, 0, 0); // Dibuja el contenido actual del canvas principal en el canvas temporal
 
-        // Clear the main canvas to redraw with effect
+        // Limpia el canvas principal para redibujar con el efecto
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        ctx.save(); // Save context state
+        ctx.save(); // Guarda el estado del contexto
         ctx.globalCompositeOperation = 'lighter'; 
         
-        const glowBlur = 0.5; // Reduced blur for minimal motion glow
+        const glowBlur = 0.5; // Desenfoque reducido para un brillo de movimiento mínimo
 
-        // Animate the offset for chromatic aberration
-        const animatedOffset = Math.sin(gameState.globalTime * 0.002) * 1.5 + 1; // Oscillates between -0.5 and 2.5
+        // Anima el desplazamiento para la aberración cromática
+        // Oscila entre -2 y 2, para un efecto más pronunciado
+        const animatedOffset = Math.sin(gameState.globalTime * 0.002) * 2; 
 
-        // Draw layers with effects
+        // Dibuja capas con efectos
         const layers = [
-            { offsetX: -animatedOffset, offsetY: -animatedOffset, filter: `blur(${glowBlur}px)`, hueRotate: 0 },
-            { offsetX: 0, offsetY: 0, filter: `blur(${glowBlur * 0.5}px)`, hueRotate: 120 },
-            { offsetX: animatedOffset, offsetY: animatedOffset, filter: `blur(${glowBlur}px)`, hueRotate: 240 }
+            // Capa Roja: se mueve en la dirección positiva del offset
+            { offsetX: animatedOffset, offsetY: animatedOffset, filter: `blur(${glowBlur}px)`, hueRotate: 0, brightness: 1.2, saturate: 1.5 }, 
+            // Capa Verde (central): sin desplazamiento, ligeramente desenfocada
+            { offsetX: 0, offsetY: 0, filter: `blur(${glowBlur * 0.5}px)`, hueRotate: 120, brightness: 1.1, saturate: 1.2 }, 
+            // Capa Azul: se mueve en la dirección negativa del offset
+            { offsetX: -animatedOffset, offsetY: -animatedOffset, filter: `blur(${glowBlur}px)`, hueRotate: 240, brightness: 1.2, saturate: 1.5 } 
         ];
         
         layers.forEach(layer => {
-            ctx.filter = `${layer.filter} hue-rotate(${layer.hueRotate}deg) brightness(1.1) saturate(1.2)`;
+            ctx.filter = `blur(${layer.filter}) hue-rotate(${layer.hueRotate}deg) brightness(${layer.brightness}) saturate(${layer.saturate})`;
             ctx.drawImage(tempCanvas, layer.offsetX, layer.offsetY);
         });
         
-        ctx.restore(); // Restore context state to reset globalCompositeOperation and filter
+        ctx.restore(); // Restaura el estado del contexto para restablecer globalCompositeOperation y filter
     }
 
-    /** Draws all core game elements for 2D Canvas. */
+    /** Dibuja todos los elementos centrales del juego para Canvas 2D. */
     function drawCoreGameElements2D(deltaTime) {
         drawCentralReel();
         drawInnerBorderTriangles();
@@ -1419,11 +1422,11 @@
         attribute vec2 a_position;
         uniform vec2 u_resolution;
         void main() {
-            // convert the position from pixels to 0.0 to 1.0
+            // convierte la posición de píxeles a 0.0 a 1.0
             vec2 zeroToOne = a_position / u_resolution;
-            // convert from 0->1 to 0->2
+            // convierte de 0->1 a 0->2
             vec2 zeroToTwo = zeroToOne * 2.0;
-            // convert from 0->2 to -1->+1 (clip space)
+            // convierte de 0->2 a -1->+1 (espacio de recorte)
             vec2 clipSpace = zeroToTwo - 1.0;
             gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
         }
@@ -1445,7 +1448,7 @@
         if (success) {
             return shader;
         }
-        console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+        console.error('Error de compilación de shader:', gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
         return undefined;
     }
@@ -1459,17 +1462,17 @@
         if (success) {
             return program;
         }
-        console.error('Program linking error:', gl.getProgramInfoLog(program));
+        console.error('Error de enlace de programa:', gl.getProgramInfoLog(program));
         gl.deleteProgram(program);
         return undefined;
     }
 
     function initWebGL() {
-        // Try to get WebGL2, fallback to WebGL1, then fail.
+        // Intenta obtener WebGL2, si falla, WebGL1, luego falla.
         gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
         if (!gl) {
             customAlert('Error', 'WebGL no es soportado por tu navegador.');
-            setRenderer('2d'); // Fallback to 2D
+            setRenderer('2d'); // Vuelve a 2D
             return false;
         }
 
@@ -1507,16 +1510,16 @@
     }
 
     function drawCoreGameElementsWebGL(deltaTime) {
-        // Draw main circle border (as a slightly larger white circle behind)
+        // Dibuja el borde del círculo principal (como un círculo blanco ligeramente más grande detrás)
         drawCircleWebGL(mainCircle.x, mainCircle.y, mainCircle.radius + 6, '#FFFFFF');
 
-        // Draw player
+        // Dibuja al jugador
         const playerRadian = gameState.player.angle * DEG_TO_RAD;
         const playerX = mainCircle.x + Math.cos(playerRadian) * mainCircle.radius;
         const playerY = mainCircle.y + Math.sin(playerRadian) * mainCircle.radius;
         drawCircleWebGL(playerX, playerY, gameState.player.radius, PASTEL_COLORS[currentColorIndex]);
         
-        // Draw markers
+        // Dibuja los marcadores
         const markerRadius = mainCircle.radius * 0.05;
         gameState.activeMarkers.forEach(marker => {
             const markerRadian = marker.angle * DEG_TO_RAD;
@@ -1532,7 +1535,7 @@
     function drawWebGL(timestamp, deltaTime) {
         if (!gl) return;
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        gl.clearColor(0.05, 0.05, 0.05, 1.0); // Dark grey background
+        gl.clearColor(0.05, 0.05, 0.05, 1.0); // Fondo gris oscuro
         gl.clear(gl.COLOR_BUFFER_BIT);
         
         gl.useProgram(webglData.program);
@@ -1549,15 +1552,15 @@
 
     // --- Render Loop ---
     /**
-     * Main game rendering and update loop.
-     * @param {DOMHighResTimeStamp} timestamp - The current time provided by requestAnimationFrame.
+     * Bucle principal de renderizado y actualización del juego.
+     * @param {DOMHighResTimeStamp} timestamp - El tiempo actual proporcionado por requestAnimationFrame.
      */
     function draw(timestamp) {
       if (!gameState.lastTime) gameState.lastTime = timestamp;
       const deltaTime = timestamp - gameState.lastTime;
       gameState.lastTime = timestamp;
       
-      // Only update global time if not paused
+      // Solo actualiza el tiempo global si no está en pausa
       if (gameState.phase !== 'paused') {
         gameState.globalTime += deltaTime;
       }
@@ -1568,53 +1571,53 @@
           return;
       }
 
-      // --- 2D CANVAS RENDERING ---
+      // --- RENDERIZADO DE CANVAS 2D ---
       if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height); // Always clear the entire canvas to handle animated background elements correctly
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Siempre limpia todo el canvas para manejar correctamente los elementos de fondo animados
 
-      // Only draw game-specific visuals if NOT in the main menu, settings, or score screen.
+      // Solo dibuja los elementos visuales específicos del juego si NO está en el menú principal, configuración o pantalla de puntuación.
       if (gameState.phase !== 'menu' && gameState.phase !== 'settings' && gameState.phase !== 'scoreScreen') {
-        // Draw common game visual elements (background and main circle border)
-        drawBackgroundElements(deltaTime); // Background elements animate even when paused
+        // Dibuja los elementos visuales comunes del juego (fondo y borde del círculo principal)
+        drawBackgroundElements(deltaTime); // Los elementos de fondo se animan incluso cuando están en pausa
 
         ctx.beginPath();
-        ctx.arc(mainCircle.x, mainCircle.y, mainCircle.radius + 6, 0, Math.PI * 2); // Outer part of border
-        ctx.strokeStyle = '#FFFFFF'; // Changed to white
-        ctx.lineWidth = 12; // Matches the CSS border size visually
+        ctx.arc(mainCircle.x, mainCircle.y, mainCircle.radius + 6, 0, Math.PI * 2); // Parte exterior del borde
+        ctx.strokeStyle = '#FFFFFF'; // Cambiado a blanco
+        ctx.lineWidth = 12; // Coincide visualmente con el tamaño del borde CSS
         ctx.stroke();
 
-        // Render game elements based on current phase
+        // Renderiza los elementos del juego según la fase actual
         if (gameState.phase === 'playing') {
           drawCoreGameElements2D(deltaTime);
         } else if (gameState.phase === 'roundComplete') {
           drawCoreGameElements2D(deltaTime);
           
-          // Check if it's time to start the next round
+          // Verifica si es hora de iniciar la siguiente ronda
           if (gameState.globalTime >= gameState.nextRoundStartTime) {
             gameState.currentRoundIndex++;
-            startRound(gameState.currentRoundIndex); // Calls showScoreScreen if all rounds done
-            if (gameState.phase !== 'scoreScreen') { // Only set to playing if not transitioning to score screen
+            startRound(gameState.currentRoundIndex); // Llama a showScoreScreen si todas las rondas están hechas
+            if (gameState.phase !== 'scoreScreen') { // Solo establece como jugando si no está en transición a la pantalla de puntuación
                 gameState.phase = 'playing';
             }
           }
         } else if (gameState.phase === 'paused' || gameState.phase === 'ended') {
-            // When paused or ended, draw static game elements (without updates for core game logic,
-            // but transient animations like particles/texts still progress).
+            // Cuando está en pausa o finalizado, dibuja los elementos estáticos del juego (sin actualizaciones para la lógica central del juego,
+            // pero las animaciones transitorias como partículas/textos aún progresan).
             drawCoreGameElements2D(deltaTime);
         } else if (gameState.phase === 'introAnimation') {
             const elapsed = gameState.globalTime - gameState.introAnimationStartTime;
             const progress = Math.min(1, elapsed / INTRO_ANIMATION_DURATION);
 
-            // Scale the main circle and central reel during intro
+            // Escala el círculo principal y el carrete central durante la introducción
             const initialRadius = 0;
             const targetRadius = mainCircle.radius;
             const currentRadius = initialRadius + (targetRadius - initialRadius) * progress;
 
-            // Temporarily override mainCircle.radius for drawing
+            // Sobreescribe temporalmente mainCircle.radius para dibujar
             const originalMainCircleRadius = mainCircle.radius;
             mainCircle.radius = currentRadius;
 
-            // Draw scaled central reel and main circle border
+            // Dibuja el carrete central escalado y el borde del círculo principal
             drawCentralReel();
             ctx.beginPath();
             ctx.arc(mainCircle.x, mainCircle.y, mainCircle.radius + 6, 0, Math.PI * 2);
@@ -1622,12 +1625,12 @@
             ctx.lineWidth = 12;
             ctx.stroke();
 
-            // Restore original mainCircle.radius
+            // Restaura el mainCircle.radius original
             mainCircle.radius = originalMainCircleRadius;
 
             if (elapsed >= INTRO_ANIMATION_DURATION) {
-                elements.introAnimationText.classList.remove('animate-intro'); // Remove class to allow re-animation
-                elements.introAnimationText.classList.add('hidden'); // Hide the intro text
+                elements.introAnimationText.classList.remove('animate-intro'); // Elimina la clase para permitir la re-animación
+                elements.introAnimationText.classList.add('hidden'); // Oculta el texto de introducción
                 gameState.phase = 'playing';
                 gameState.startTime = gameState.globalTime;
                 resetGameStats();
@@ -1636,7 +1639,7 @@
             }
         }
 
-        // Apply shader effect if enabled, at the very end of drawing
+        // Aplica el efecto de shader si está habilitado, al final del dibujo
         if (gameState.activeShader === 'invert') {
             ctx.filter = 'invert(100%)';
         } else if (gameState.activeShader === 'chromatic_glow') {
@@ -1646,122 +1649,122 @@
         }
       }
 
-      requestAnimationFrame(draw); // Request next animation frame
+      requestAnimationFrame(draw); // Solicita el siguiente fotograma de animación
     }
 
 
     // --- Settings Functions ---
     /**
-     * Sets the renderer.
-     * @param {string} renderer - The renderer to use ('2d' or 'webgl').
+     * Establece el renderizador.
+     * @param {string} renderer - El renderizador a usar ('2d' o 'webgl').
      */
     function setRenderer(renderer) {
         if (renderer === 'webgl') {
             if (!gl && !initWebGL()) {
-                return; // If WebGL init failed, don't switch
+                return; // Si la inicialización de WebGL falló, no cambia
             }
-            ctx = null; // We are no longer using 2D context
+            ctx = null; // Ya no estamos usando el contexto 2D
         } else {
             ctx = canvas.getContext('2d');
         }
         gameState.currentRenderer = renderer;
         updateSettingsUI();
         saveSettings();
-        setCanvasSize(); // Re-run to set correct context scaling
+        setCanvasSize(); // Vuelve a ejecutar para establecer la escala de contexto correcta
     }
 
     /**
-     * Sets the graphics quality and updates related parameters.
-     * @param {string} quality - The desired graphics quality ('low', 'medium', 'high').
+     * Establece la calidad de los gráficos y actualiza los parámetros relacionados.
+     * @param {string} quality - La calidad de gráficos deseada ('low', 'medium', 'high').
      */
     function setGraphicsQuality(quality) {
         gameState.currentGraphicsQuality = quality;
         NUM_BACKGROUND_SQUARES = GRAPHICS_SETTINGS[quality].squares;
         PARTICLES_COUNT = GRAPHICS_SETTINGS[quality].particles;
-        NUM_BACKGROUND_LINES = GRAPHICS_SETTINGS[quality].lines; // Update line count
-        initializeBackgroundElements(); // Re-initialize elements with new counts
-        updateSettingsUI(); // Update active button in UI
-        saveSettings(); // Save settings after change
+        NUM_BACKGROUND_LINES = GRAPHICS_SETTINGS[quality].lines; // Actualiza el recuento de líneas
+        initializeBackgroundElements(); // Reinicializa los elementos con los nuevos recuentos
+        updateSettingsUI(); // Actualiza el botón activo en la UI
+        saveSettings(); // Guarda la configuración después del cambio
     }
 
     /**
-     * Sets the game difficulty.
-     * @param {string} difficulty - The desired difficulty ('easy', 'normal', 'hard').
+     * Establece la dificultad del juego.
+     * @param {string} difficulty - La dificultad deseada ('easy', 'normal', 'hard').
      */
     function setDifficulty(difficulty) {
         gameState.currentDifficulty = difficulty;
-        updateSettingsUI(); // Update active button in UI
-        saveSettings(); // Save settings after change
+        updateSettingsUI(); // Actualiza el botón activo en la UI
+        saveSettings(); // Guarda la configuración después del cambio
     }
 
     /**
-     * Sets the active shader effect.
-     * @param {string} effectType - The type of shader to activate ('none', 'invert', 'chromatic_glow').
+     * Establece el efecto de shader activo.
+     * @param {string} effectType - El tipo de shader a activar ('none', 'invert', 'chromatic_glow').
      */
     function setShaderEffect(effectType) {
         gameState.activeShader = effectType;
-        updateSettingsUI(); // Update active button in UI
-        saveSettings(); // Save settings after change
+        updateSettingsUI(); // Actualiza el botón activo en la UI
+        saveSettings(); // Guarda la configuración después del cambio
     }
 
     /**
-     * Sets the color mode for the game.
-     * @param {string} mode - The desired color mode ('per_round', 'rainbow').
+     * Establece el modo de color para el juego.
+     * @param {string} mode - El modo de color deseado ('per_round', 'rainbow').
      */
     function setColorMode(mode) {
         gameState.colorMode = mode;
         if (gameState.colorMode === 'rainbow') {
-            if (!colorUpdateIntervalId) { // Only start if not already running
+            if (!colorUpdateIntervalId) { // Solo inicia si aún no está en ejecución
                 colorUpdateIntervalId = setInterval(updatePsychedelicColors, 700);
             }
         } else {
-            clearInterval(colorUpdateIntervalId); // Stop automatic color change
+            clearInterval(colorUpdateIntervalId); // Detiene el cambio automático de color
             colorUpdateIntervalId = null;
-            // Optionally, reset to a default color or pick one for the current round
-            // For 'per_round' mode, the color is set in startRound()
+            // Opcionalmente, restablece a un color predeterminado o elige uno para la ronda actual
+            // Para el modo 'per_round', el color se establece en startRound()
         }
-        updateSettingsUI(); // Update active button in UI
-        saveSettings(); // Save settings after change
+        updateSettingsUI(); // Actualiza el botón activo en la UI
+        saveSettings(); // Guarda la configuración después del cambio
     }
 
-    /** Updates the 'active' class for buttons in the settings UI. */
+    /** Actualiza la clase 'active' para los botones en la UI de configuración. */
     function updateSettingsUI() {
-        // Renderer buttons
+        // Botones de renderizador
         elements.renderer2d.classList.toggle('active', gameState.currentRenderer === '2d');
         elements.rendererWebGL.classList.toggle('active', gameState.currentRenderer === 'webgl');
 
-        // Graphics buttons
+        // Botones de gráficos
         elements.graphicsLow.classList.toggle('active', gameState.currentGraphicsQuality === 'low');
         elements.graphicsMedium.classList.toggle('active', gameState.currentGraphicsQuality === 'medium');
         elements.graphicsHigh.classList.toggle('active', gameState.currentGraphicsQuality === 'high');
 
-        // Difficulty buttons
+        // Botones de dificultad
         elements.difficultyEasy.classList.toggle('active', gameState.currentDifficulty === 'easy');
         elements.difficultyNormal.classList.toggle('active', gameState.currentDifficulty === 'normal');
         elements.difficultyHard.classList.toggle('active', gameState.currentDifficulty === 'hard');
 
-        // Shader buttons
+        // Botones de shader
         elements.shaderOff.classList.toggle('active', gameState.activeShader === 'none');
         elements.shaderInvert.classList.toggle('active', gameState.activeShader === 'invert');
         elements.shaderChromaticGlow.classList.toggle('active', gameState.activeShader === 'chromatic_glow');
 
-        // Color Mode buttons
+        // Botones de modo de color
         elements.colorModePerRound.classList.toggle('active', gameState.colorMode === 'per_round');
         elements.colorModeRainbow.classList.toggle('active', gameState.colorMode === 'rainbow');
     }
 
-    /** Hides the game info text after a delay. */
+    /** Oculta el texto de información del juego después de un retraso. */
     function hideGameInfoText() {
         elements.gameInfoText.classList.add('hidden');
     }
 
-    /** Shows the game info text. */
+    /** Muestra el texto de información del juego. */
     function showGameInfoText() {
         elements.gameInfoText.classList.remove('hidden');
     }
 
     // --- LocalStorage Functions ---
-    /** Saves current game settings to localStorage. */
+    /** Guarda la configuración actual del juego en localStorage. */
     function saveSettings() {
         const settings = {
             renderer: gameState.currentRenderer,
@@ -1773,30 +1776,30 @@
         localStorage.setItem('rpcgSettings', JSON.stringify(settings));
     }
 
-    /** Loads game settings from localStorage. */
+    /** Carga la configuración del juego desde localStorage. */
     function loadSettings() {
         const savedSettings = localStorage.getItem('rpcgSettings');
         if (savedSettings) {
             const settings = JSON.parse(savedSettings);
-            // Apply loaded settings, ensuring defaults if a setting is missing
+            // Aplica la configuración cargada, asegurando los valores predeterminados si falta una configuración
             setRenderer(settings.renderer || '2d');
             setGraphicsQuality(settings.graphics || 'medium');
             setDifficulty(settings.difficulty || 'normal');
             setShaderEffect(settings.shader || 'none');
-            setColorMode(settings.colorMode || 'rainbow'); // This will also manage the color update interval
+            setColorMode(settings.colorMode || 'rainbow'); // Esto también gestionará el intervalo de actualización de color
         } else {
-            // Apply initial defaults if no settings are saved
+            // Aplica los valores predeterminados iniciales si no hay configuración guardada
             setRenderer('2d');
             setGraphicsQuality('medium');
             setDifficulty('normal');
             setShaderEffect('none');
             setColorMode('rainbow');
         }
-        updateSettingsUI(); // Ensure UI reflects loaded settings
+        updateSettingsUI(); // Asegura que la UI refleje la configuración cargada
     }
 
     // --- Event Listener Handlers ---
-    /** Handles gameplay input (spacebar or touch). */
+    /** Maneja la entrada de juego (barra espaciadora o toque). */
     function handleGameplayInput() {
         const currentTime = performance.now();
         if (currentTime - lastGameplayInputTime < GAMEPLAY_INPUT_COOLDOWN) {
@@ -1832,12 +1835,12 @@
             if (gameState.phase === 'menu') {
                 elements.startMenu.classList.add('hidden');
                 elements.introAnimationText.classList.remove('hidden');
-                elements.introAnimationText.classList.add('animate-intro'); // Start animation
+                elements.introAnimationText.classList.add('animate-intro'); // Inicia la animación
                 gameState.phase = 'introAnimation';
                 gameState.introAnimationStartTime = gameState.globalTime;
-                // Game start logic will be handled after intro animation completes
+                // La lógica de inicio del juego se manejará después de que la animación de introducción se complete
             } else if (gameState.phase === 'playing') {
-                handleGameplayInput(); // Call centralized gameplay input handler
+                handleGameplayInput(); // Llama al manejador centralizado de entrada de juego
             }
             e.preventDefault();
         }
@@ -1851,14 +1854,14 @@
 
     function handleTouch(e) {
         if (gameState.phase === 'playing') {
-            e.preventDefault(); // Prevent default touch behavior (e.g., scrolling, zooming)
-            handleGameplayInput(); // Call centralized gameplay input handler
+            e.preventDefault(); // Evita el comportamiento táctil predeterminado (ej. desplazamiento, zoom)
+            handleGameplayInput(); // Llama al manejador centralizado de entrada de juego
         } else if (gameState.phase === 'menu') {
-             // Handle touch on play button in menu
+             // Maneja el toque en el botón de reproducción en el menú
             if (e.target === elements.playButton) {
                 elements.startMenu.classList.add('hidden');
                 elements.introAnimationText.classList.remove('hidden');
-                elements.introAnimationText.classList.add('animate-intro'); // Start animation
+                elements.introAnimationText.classList.add('animate-intro'); // Inicia la animación
                 gameState.phase = 'introAnimation';
                 gameState.introAnimationStartTime = gameState.globalTime;
                 e.preventDefault();
@@ -1873,20 +1876,20 @@
         document.body.addEventListener('touchstart', handleTouch);
     }
 
-    // Helper function to attach both click and touchstart listeners to buttons
+    // Función auxiliar para adjuntar oyentes de clic y touchstart a los botones
     function attachButtonListeners(buttonElement, handlerFunction) {
         buttonElement.addEventListener('click', handlerFunction);
         buttonElement.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevent default touch behavior (e.g., ghost clicks)
-            handlerFunction(e); // Execute the button's action
+            e.preventDefault(); // Evita el comportamiento táctil predeterminado (ej. clics fantasma)
+            handlerFunction(e); // Ejecuta la acción del botón
         });
     }
 
-    // Attach listeners to main menu buttons
+    // Adjunta oyentes a los botones del menú principal
     attachButtonListeners(elements.playButton, () => {
         elements.startMenu.classList.add('hidden');
         elements.introAnimationText.classList.remove('hidden');
-        elements.introAnimationText.classList.add('animate-intro'); // Start animation
+        elements.introAnimationText.classList.add('animate-intro'); // Inicia la animación
         gameState.phase = 'introAnimation';
         gameState.introAnimationStartTime = gameState.globalTime;
     });
@@ -1900,61 +1903,61 @@
         elements.settingsMenu.classList.add('hidden');
         elements.startMenu.classList.remove('hidden');
         gameState.phase = 'menu';
-        resetGameStats(); // Reset stats when going back to main menu
-        showGameInfoText(); // Show info text when returning to main menu
+        resetGameStats(); // Reinicia las estadísticas al volver al menú principal
+        showGameInfoText(); // Muestra el texto de información al volver al menú principal
     });
     attachButtonListeners(elements.aboutButton, () => {
         customAlert('Acerca de', 'Juego de Ritmo Psico Minimalista\nDesarrollado con amor y colores pastel.\nPor RetrogisusDEV\nv0.1.0');
     });
 
-    // Attach listeners to pause menu buttons
+    // Adjunta oyentes a los botones del menú de pausa
     attachButtonListeners(elements.continueButton, () => {
         gameState.phase = 'playing';
         elements.pauseMenu.classList.add('hidden');
     });
     attachButtonListeners(elements.restartButton, () => {
         elements.pauseMenu.classList.add('hidden');
-        elements.scoreScreen.classList.add('hidden'); // Hide score screen if restarting from there
-        elements.introAnimationText.classList.remove('hidden'); // Show intro text again
-        elements.introAnimationText.classList.add('animate-intro'); // Start animation
-        gameState.phase = 'introAnimation'; // Go through intro animation again
+        elements.scoreScreen.classList.add('hidden'); // Oculta la pantalla de puntuación si se reinicia desde allí
+        elements.introAnimationText.classList.remove('hidden'); // Muestra el texto de introducción de nuevo
+        elements.introAnimationText.classList.add('animate-intro'); // Inicia la animación
+        gameState.phase = 'introAnimation'; // Pasa por la animación de introducción de nuevo
         gameState.introAnimationStartTime = gameState.globalTime;
     });
     attachButtonListeners(elements.exitToMenuButton, () => {
         elements.pauseMenu.classList.add('hidden');
         elements.startMenu.classList.remove('hidden');
         gameState.phase = 'menu';
-        resetGameStats(); // Reset stats when going back to main menu
-        showGameInfoText(); // Show info text when returning to main menu
+        resetGameStats(); // Reinicia las estadísticas al volver al menú principal
+        showGameInfoText(); // Muestra el texto de información al volver al menú principal
     });
 
-    // Attach listener to custom alert close button
+    // Adjunta oyente al botón de cerrar alerta personalizada
     attachButtonListeners(elements.customAlertCloseButton, hideCustomAlert);
 
-    // Attach listeners to renderer settings buttons
+    // Adjunta oyentes a los botones de configuración del renderizador
     attachButtonListeners(elements.renderer2d, () => setRenderer('2d'));
     attachButtonListeners(elements.rendererWebGL, () => setRenderer('webgl'));
 
-    // Attach listeners to graphics settings buttons
+    // Adjunta oyentes a los botones de configuración de gráficos
     attachButtonListeners(elements.graphicsLow, () => setGraphicsQuality('low'));
     attachButtonListeners(elements.graphicsMedium, () => setGraphicsQuality('medium'));
     attachButtonListeners(elements.graphicsHigh, () => setGraphicsQuality('high'));
 
-    // Attach listeners to difficulty settings buttons
+    // Adjunta oyentes a los botones de configuración de dificultad
     attachButtonListeners(elements.difficultyEasy, () => setDifficulty('easy'));
     attachButtonListeners(elements.difficultyNormal, () => setDifficulty('normal'));
     attachButtonListeners(elements.difficultyHard, () => setDifficulty('hard'));
 
-    // Attach listeners to shader settings buttons
+    // Adjunta oyentes a los botones de configuración de shader
     attachButtonListeners(elements.shaderOff, () => setShaderEffect('none'));
     attachButtonListeners(elements.shaderInvert, () => setShaderEffect('invert'));
     attachButtonListeners(elements.shaderChromaticGlow, () => setShaderEffect('chromatic_glow'));
 
-    // Attach listeners to new color mode buttons
+    // Adjunta oyentes a los nuevos botones de modo de color
     attachButtonListeners(elements.colorModePerRound, () => setColorMode('per_round'));
     attachButtonListeners(elements.colorModeRainbow, () => setColorMode('rainbow'));
 
-    // Attach listener for Play Again button
+    // Adjunta oyente al botón Jugar de Nuevo
     attachButtonListeners(elements.playAgainButton, () => {
         elements.scoreScreen.classList.add('hidden');
         elements.startMenu.classList.remove('hidden');
@@ -1963,11 +1966,11 @@
         showGameInfoText();
     });
 
-    // --- Initialization ---
+    // --- Inicialización ---
     window.addEventListener('resize', setCanvasSize);
-    loadSettings(); // Load settings from localStorage on startup
-    setupEventListeners(); // Setup global event listeners
-    requestAnimationFrame(draw); // Start animation loop
+    loadSettings(); // Carga la configuración de localStorage al inicio
+    setupEventListeners(); // Configura los oyentes de eventos globales
+    requestAnimationFrame(draw); // Inicia el bucle de animación
   </script>
 </body>
 
