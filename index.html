@@ -669,7 +669,7 @@
         // MSAA related
         msaaFramebuffer: null,
         msaaRenderbuffer: null,
-        msaaTexture: null, // For blitting to a texture if needed for post-processing chain
+        msaaTexture: null,
 
         // FXAA related
         fxaaProgram: null,
@@ -1513,8 +1513,8 @@
         const glowBlur = 0.5; // Desenfoque reducido para un brillo de movimiento mínimo
 
         // Anima el desplazamiento para la aberración cromática basado en el ángulo del jugador
-        // Multiplicado por 1.0 para que oscile una vez por rotación del jugador
-        const animatedOffset = Math.sin(gameState.player.angle * DEG_TO_RAD * 1.0) * 2; 
+        // Multiplicado por 2.0 para que oscile dos veces por rotación del jugador
+        const animatedOffset = Math.sin(gameState.player.angle * DEG_TO_RAD * 2.0) * 2; 
 
         // Dibuja capas con efectos
         const layers = [
@@ -1662,49 +1662,58 @@
     }
 
     function initWebGL() {
-        // Try to get WebGL2, fallback to WebGL1, then fail.
-        // Disable default anti-aliasing if we plan to use custom AA
-        gl = canvas.getContext('webgl2', { antialias: false }) || canvas.getContext('webgl', { antialias: false }); 
+        // Intenta obtener WebGL2, retrocede a WebGL1
+        gl = canvas.getContext('webgl2', { antialias: false }) || 
+             canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: true });
+        
         if (!gl) {
-            customAlert('Error', 'WebGL no es soportado por tu navegador.');
-            setRenderer('2d'); // Fallback to 2D
+            console.error('WebGL no es soportado por tu navegador.');
             return false;
         }
 
-        // Add context loss/restore listeners
-        gl.canvas.addEventListener('webglcontextlost', (event) => {
-            event.preventDefault();
-            console.warn('WebGL context lost. Attempting to restore...');
-            // Stop rendering loop or pause game
-            gameState.phase = 'paused'; // Or a specific 'contextLost' phase
-            elements.pauseMenu.classList.remove('hidden');
-            customAlert('Advertencia', 'El contexto WebGL se ha perdido. Intentando restaurar...');
-        }, false);
+        // Limpia recursos anteriores si existen
+        if (webglData.program) gl.deleteProgram(webglData.program);
+        if (webglData.positionBuffer) gl.deleteBuffer(webglData.positionBuffer);
+        if (webglData.msaaFramebuffer) gl.deleteFramebuffer(webglData.msaaFramebuffer);
+        if (webglData.msaaRenderbuffer) gl.deleteRenderbuffer(webglData.msaaRenderbuffer);
+        if (webglData.msaaTexture) gl.deleteTexture(webglData.msaaTexture);
+        if (webglData.sceneTextureFramebuffer) gl.deleteFramebuffer(webglData.sceneTextureFramebuffer);
+        if (webglData.sceneTexture) gl.deleteTexture(webglData.sceneTexture);
+        if (webglData.fxaaProgram) gl.deleteProgram(webglData.fxaaProgram);
+        if (webglData.quadBuffer) gl.deleteBuffer(webglData.quadBuffer);
 
-        gl.canvas.addEventListener('webglcontextrestored', () => {
-            console.log('WebGL context restored. Re-initializing...');
-            // Re-initialize all WebGL resources
-            initWebGL(); // Re-run initWebGL to recreate all shaders, programs, buffers, textures
-            // Resume game or return to previous state
-            if (gameState.phase === 'paused') { // Only if paused due to context loss
-                gameState.phase = 'playing';
-                elements.pauseMenu.classList.add('hidden');
-            }
-            customAlert('Información', 'El contexto WebGL ha sido restaurado.');
-        });
+        // Reinicializa el objeto webglData
+        webglData = {
+            program: null,
+            positionAttributeLocation: null,
+            resolutionUniformLocation: null,
+            colorUniformLocation: null,
+            positionBuffer: null,
+            msaaFramebuffer: null,
+            msaaRenderbuffer: null,
+            msaaTexture: null,
+            fxaaProgram: null,
+            fxaaPositionLocation: null,
+            fxaaTexCoordLocation: null,
+            fxaaResolutionUniform: null,
+            fxaaSamplerUniform: null,
+            quadBuffer: null,
+            sceneTextureFramebuffer: null,
+            sceneTexture: null
+        };
 
+        // Crea shaders básicos
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        
         if (!vertexShader || !fragmentShader) {
-            customAlert('Error', 'Falló la compilación de shaders WebGL. Volviendo a Canvas 2D.');
-            setRenderer('2d');
+            console.error('Falló la compilación de shaders WebGL');
             return false;
         }
 
         webglData.program = createProgram(gl, vertexShader, fragmentShader);
         if (!webglData.program) {
-            customAlert('Error', 'Falló el enlace del programa WebGL. Volviendo a Canvas 2D.');
-            setRenderer('2d');
+            console.error('Falló el enlace del programa WebGL');
             return false;
         }
 
@@ -1715,204 +1724,194 @@
         webglData.positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, webglData.positionBuffer);
 
-        // Clear previous FBOs and textures if re-initializing
-        if (webglData.msaaFramebuffer) gl.deleteFramebuffer(webglData.msaaFramebuffer);
-        if (webglData.msaaRenderbuffer) gl.deleteRenderbuffer(webglData.msaaRenderbuffer);
-        if (webglData.msaaTexture) gl.deleteTexture(webglData.msaaTexture);
-        if (webglData.sceneTextureFramebuffer) gl.deleteFramebuffer(webglData.sceneTextureFramebuffer);
-        if (webglData.sceneTexture) gl.deleteTexture(webglData.sceneTexture);
-        if (webglData.fxaaProgram) gl.deleteProgram(webglData.fxaaProgram);
-        if (webglData.quadBuffer) gl.deleteBuffer(webglData.quadBuffer);
-
-        webglData.msaaFramebuffer = null;
-        webglData.msaaRenderbuffer = null;
-        webglData.msaaTexture = null;
-        webglData.sceneTextureFramebuffer = null;
-        webglData.sceneTexture = null;
-        webglData.fxaaProgram = null;
-        webglData.quadBuffer = null;
-
-        // Setup for MSAA (WebGL2 only)
+        // Configura MSAA solo para WebGL2
         if (gl instanceof WebGL2RenderingContext && gameState.currentAntiAliasing === 'msaa_x2') {
             webglData.msaaFramebuffer = gl.createFramebuffer();
             gl.bindFramebuffer(gl.FRAMEBUFFER, webglData.msaaFramebuffer);
 
             webglData.msaaRenderbuffer = gl.createRenderbuffer();
             gl.bindRenderbuffer(gl.RENDERBUFFER, webglData.msaaRenderbuffer);
-            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 2, gl.RGBA8, canvas.width, canvas.height); // MSAA x2
+            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 2, gl.RGBA8, canvas.width, canvas.height);
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, webglData.msaaRenderbuffer);
 
-            const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-            if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
-                console.error('MSAA Framebuffer not complete:', fbStatus);
-                gameState.currentAntiAliasing = 'none'; // Fallback
-                customAlert('Advertencia', 'MSAA x2 no pudo ser inicializado. Usando sin Anti-Aliasing.');
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
-                return initWebGL(); // Re-initialize without MSAA
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error('MSAA Framebuffer incompleto');
+                return false;
             }
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
         }
 
-        // Setup for FXAA
+        // Configura FXAA
         if (gameState.currentAntiAliasing === 'fxaa') {
-            // Create a texture to render the scene into
+            // Framebuffer para la escena
+            webglData.sceneTextureFramebuffer = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, webglData.sceneTextureFramebuffer);
+            
             webglData.sceneTexture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, webglData.sceneTexture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); // Added for better quality
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-            // Create a framebuffer to attach the texture
-            webglData.sceneTextureFramebuffer = gl.createFramebuffer();
-            gl.bindFramebuffer(gl.FRAMEBUFFER, webglData.sceneTextureFramebuffer);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, webglData.sceneTexture, 0);
 
-            const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-            if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
-                console.error('FXAA Texture Framebuffer not complete:', fbStatus);
-                gameState.currentAntiAliasing = 'none'; // Fallback
-                customAlert('Advertencia', 'FXAA no pudo ser inicializado. Usando sin Anti-Aliasing.');
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
-                return initWebGL(); // Re-initialize without FXAA
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error('Framebuffer de textura incompleto');
+                return false;
             }
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
 
-            // Initialize FXAA shaders
+            // Programa FXAA
             const fxaaVertexShader = createShader(gl, gl.VERTEX_SHADER, fxaaVertexShaderSource);
             const fxaaFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fxaaFragmentShaderSource);
+            
             if (!fxaaVertexShader || !fxaaFragmentShader) {
-                customAlert('Error', 'Falló la compilación de shaders FXAA. Volviendo a sin Anti-Aliasing.');
-                gameState.currentAntiAliasing = 'none';
-                return initWebGL(); // Re-initialize without FXAA
+                console.error('Falló la compilación de shaders FXAA');
+                return false;
             }
 
             webglData.fxaaProgram = createProgram(gl, fxaaVertexShader, fxaaFragmentShader);
             if (!webglData.fxaaProgram) {
-                customAlert('Error', 'Falló el enlace del programa FXAA. Volviendo a sin Anti-Aliasing.');
-                gameState.currentAntiAliasing = 'none';
-                return initWebGL(); // Re-initialize without FXAA
+                console.error('Falló el enlace del programa FXAA');
+                return false;
             }
 
             webglData.fxaaPositionLocation = gl.getAttribLocation(webglData.fxaaProgram, "a_position");
             webglData.fxaaResolutionUniform = gl.getUniformLocation(webglData.fxaaProgram, "u_resolution");
             webglData.fxaaSamplerUniform = gl.getUniformLocation(webglData.fxaaProgram, "u_sampler");
 
-            // Create a buffer for a fullscreen quad
+            // Buffer para el quad de pantalla completa
             webglData.quadBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, webglData.quadBuffer);
-            const positions = [
-                -1, -1, // bottom-left
-                 1, -1, // bottom-right
-                -1,  1, // top-left
-                -1,  1, // top-left
-                 1, -1, // bottom-right
-                 1,  1, // top-right
-            ];
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+            const positions = new Float32Array([
+                -1, -1,  1, -1,  -1,  1,
+                -1,  1,  1, -1,   1,  1
+            ]);
+            gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
         }
 
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return true;
     }
 
-    function drawCircleWebGL(centerX, centerY, radius, color) {
+    /**
+     * Dibuja un círculo en WebGL
+     * @param {number} centerX - Coordenada X del centro
+     * @param {number} centerY - Coordenada Y del centro
+     * @param {number} radius - Radio del círculo
+     * @param {string} color - Color en formato hexadecimal (#RRGGBB)
+     */
+    function drawCircleWebGL(centerX, centerY, radius, color = '#FFFFFF') {
         const segments = 32;
         const vertices = [centerX, centerY];
+        
         for (let i = 0; i <= segments; i++) {
-            const angle = (i / segments) * 2 * Math.PI;
+            const angle = (i / segments) * Math.PI * 2;
             vertices.push(centerX + Math.cos(angle) * radius);
             vertices.push(centerY + Math.sin(angle) * radius);
         }
+        
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         
-        const normalizedColor = hexToRgbNormalized(color);
-        gl.uniform4f(webglData.colorUniformLocation, normalizedColor[0], normalizedColor[1], normalizedColor[2], 1);
+        const rgb = hexToRgbNormalized(color);
+        gl.uniform4f(webglData.colorUniformLocation, rgb[0], rgb[1], rgb[2], 1);
         
         gl.drawArrays(gl.TRIANGLE_FAN, 0, segments + 2);
     }
 
     function drawCoreGameElementsWebGL(deltaTime) {
-        // Dibuja el borde del círculo principal (como un círculo blanco ligeramente más grande detrás)
+        // Actualiza el jugador (ángulo, posición)
+        updatePlayer(deltaTime);
+        
+        // Dibuja el borde del círculo principal
         drawCircleWebGL(mainCircle.x, mainCircle.y, mainCircle.radius + 6, '#FFFFFF');
-
+        
         // Dibuja al jugador
         const playerRadian = gameState.player.angle * DEG_TO_RAD;
         const playerX = mainCircle.x + Math.cos(playerRadian) * mainCircle.radius;
         const playerY = mainCircle.y + Math.sin(playerRadian) * mainCircle.radius;
-        drawCircleWebGL(playerX, playerY, getCurrentRenderColor(PASTEL_COLORS[currentColorIndex])); // Apply color mode here
+        const playerColor = getCurrentRenderColor(PASTEL_COLORS[currentColorIndex]);
+        drawCircleWebGL(playerX, playerY, gameState.player.radius, playerColor);
         
         // Dibuja los marcadores
         const markerRadius = mainCircle.radius * 0.05;
         gameState.activeMarkers.forEach(marker => {
+            if (marker.hit) return;
+            
             const markerRadian = marker.angle * DEG_TO_RAD;
             const markerX = mainCircle.x + Math.cos(markerRadian) * mainCircle.radius;
             const markerY = mainCircle.y + Math.sin(markerRadian) * mainCircle.radius;
-            const color = marker.hit ? '#333333' : getCurrentRenderColor(PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length]); // Apply color mode here
-            drawCircleWebGL(markerX, markerY, markerRadius, color);
+            const markerColor = getCurrentRenderColor(PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length]);
+            drawCircleWebGL(markerX, markerY, markerRadius, markerColor);
         });
-        
-        updatePlayer(deltaTime);
     }
 
     function drawWebGL(timestamp, deltaTime) {
         if (!gl) return;
-
-        // Determine target framebuffer for rendering the scene
+        
+        // Determina el framebuffer objetivo
         let targetFramebuffer = null;
         if (gl instanceof WebGL2RenderingContext && gameState.currentAntiAliasing === 'msaa_x2') {
             targetFramebuffer = webglData.msaaFramebuffer;
         } else if (gameState.currentAntiAliasing === 'fxaa') {
             targetFramebuffer = webglData.sceneTextureFramebuffer;
         }
-
+        
+        // Configura el framebuffer
         gl.bindFramebuffer(gl.FRAMEBUFFER, targetFramebuffer);
-        gl.viewport(0, 0, canvas.width, canvas.height); // Use canvas.width/height for FBOs
-        gl.clearColor(0.05, 0.05, 0.05, 1.0); // Dark grey background
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0.05, 0.05, 0.05, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         
+        // Usa el programa principal
         gl.useProgram(webglData.program);
         gl.enableVertexAttribArray(webglData.positionAttributeLocation);
         gl.bindBuffer(gl.ARRAY_BUFFER, webglData.positionBuffer);
         gl.vertexAttribPointer(webglData.positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.uniform2f(webglData.resolutionUniformLocation, canvas.width, canvas.height); // Use FBO dimensions
-
+        gl.uniform2f(webglData.resolutionUniformLocation, canvas.width, canvas.height);
+        
+        // Dibuja elementos del juego
         if (gameState.phase === 'playing' || gameState.phase === 'paused' || gameState.phase === 'ended' || gameState.phase === 'roundComplete') {
             drawCoreGameElementsWebGL(deltaTime);
         }
-
-        // Post-processing for anti-aliasing
+        
+        // Post-procesamiento para anti-aliasing
         if (gl instanceof WebGL2RenderingContext && gameState.currentAntiAliasing === 'msaa_x2') {
-            // Blit multisampled framebuffer to default framebuffer
+            // Transfiere el framebuffer multisample al framebuffer por defecto
             gl.bindFramebuffer(gl.READ_FRAMEBUFFER, webglData.msaaFramebuffer);
-            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null); // Default framebuffer
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
             gl.clearBufferfv(gl.COLOR, 0, [0.05, 0.05, 0.05, 1.0]); // Clear default buffer before blit
             gl.blitFramebuffer(
                 0, 0, canvas.width, canvas.height,
                 0, 0, canvas.width, canvas.height,
-                gl.COLOR_BUFFER_BIT, gl.NEAREST
+                gl.COLOR_BUFFER_BIT, gl.LINEAR
             );
             gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); // Unbind READ_FRAMEBUFFER
         } else if (gameState.currentAntiAliasing === 'fxaa') {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Render to default framebuffer
-            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); // Back to viewport dimensions
-            gl.clearColor(0.05, 0.05, 0.05, 1.0);
+            // Renderiza con FXAA
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, canvas.width, canvas.height);
             gl.clear(gl.COLOR_BUFFER_BIT);
-
+            
             gl.useProgram(webglData.fxaaProgram);
             gl.enableVertexAttribArray(webglData.fxaaPositionLocation);
             gl.bindBuffer(gl.ARRAY_BUFFER, webglData.quadBuffer);
             gl.vertexAttribPointer(webglData.fxaaPositionLocation, 2, gl.FLOAT, false, 0, 0);
-
+            
             gl.uniform2f(webglData.fxaaResolutionUniform, canvas.width, canvas.height);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, webglData.sceneTexture);
             gl.uniform1i(webglData.fxaaSamplerUniform, 0);
-
-            gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw the fullscreen quad
+            
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
+        
+        // Maneja eventos de pérdida de contexto (ya no es necesario aquí, se maneja globalmente)
+        // if (gl.isContextLost()) {
+        //     console.warn('Contexto WebGL perdido');
+        //     gameState.phase = 'paused';
+        //     elements.pauseMenu.classList.remove('hidden');
+        // }
     }
-
 
     // --- Render Loop ---
     /**
@@ -2018,34 +2017,35 @@
      * @param {string} renderer - El renderizador a usar ('2d' o 'webgl').
      */
     function setRenderer(renderer) {
-        if (renderer === 'webgl') {
-            if (!gl || gameState.currentRenderer !== 'webgl') { // Only re-initialize if not already webgl or gl is null
-                if (!initWebGL()) {
-                    return; // If WebGL init failed, don't switch
-                }
+        // Limpia el contexto anterior
+        if (gameState.currentRenderer === 'webgl' && gl) {
+            // Intentar perder el contexto para una limpieza completa
+            const loseContextExtension = gl.getExtension('WEBGL_lose_context');
+            if (loseContextExtension) {
+                loseContextExtension.loseContext();
             }
-            ctx = null; // We are no longer using 2D context
-        } else {
-            ctx = canvas.getContext('2d');
-            // Apply 2D anti-aliasing setting
-            ctx.imageSmoothingEnabled = gameState.imageSmoothingEnabled;
-
-            // If switching from WebGL, ensure to clean up WebGL resources
-            if (gl) {
-                if (webglData.msaaFramebuffer) gl.deleteFramebuffer(webglData.msaaFramebuffer);
-                if (webglData.msaaRenderbuffer) gl.deleteRenderbuffer(webglData.msaaRenderbuffer);
-                if (webglData.msaaTexture) gl.deleteTexture(webglData.msaaTexture);
-                if (webglData.sceneTextureFramebuffer) gl.deleteFramebuffer(webglData.sceneTextureFramebuffer);
-                if (webglData.sceneTexture) gl.deleteTexture(webglData.sceneTexture);
-                if (webglData.fxaaProgram) gl.deleteProgram(webglData.fxaaProgram);
-                if (webglData.quadBuffer) gl.deleteBuffer(webglData.quadBuffer);
-                gl = null; // Clear gl context
+            gl = null; // Asegurarse de que gl sea nulo después de intentar perder el contexto
+        }
+        
+        if (renderer === 'webgl') {
+            if (!initWebGL()) {
+                console.error('Falló la inicialización de WebGL, volviendo a Canvas 2D');
+                renderer = '2d'; // Forzar el renderizador a 2D si WebGL falla
             }
         }
+        
+        if (renderer === '2d') {
+            ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.imageSmoothingEnabled = gameState.imageSmoothingEnabled;
+            }
+            gl = null; // Asegurarse de que gl sea nulo si estamos en 2D
+        }
+        
         gameState.currentRenderer = renderer;
-        updateSettingsUI();
+        setCanvasSize();
         saveSettings();
-        setCanvasSize(); // Re-run to set correct context scaling
+        updateSettingsUI();
     }
 
     /**
@@ -2393,6 +2393,28 @@
 
     // --- Inicialización ---
     window.addEventListener('resize', setCanvasSize);
+    
+    // Manejadores de pérdida de contexto WebGL
+    canvas.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault();
+        console.warn('Contexto WebGL perdido');
+        gameState.phase = 'paused';
+        elements.pauseMenu.classList.remove('hidden');
+        customAlert('Advertencia', 'El contexto WebGL se ha perdido. Intentando restaurar...');
+    });
+    
+    canvas.addEventListener('webglcontextrestored', () => {
+        console.log('Contexto WebGL restaurado');
+        if (gameState.currentRenderer === 'webgl') {
+            setRenderer('webgl'); // Re-initialize WebGL context and resources
+        }
+        if (gameState.phase === 'paused') { // Only if paused due to context loss
+            gameState.phase = 'playing';
+            elements.pauseMenu.classList.add('hidden');
+        }
+        customAlert('Información', 'El contexto WebGL ha sido restaurado.');
+    });
+
     loadSettings(); // Carga la configuración de localStorage al inicio
     setupEventListeners(); // Configura los oyentes de eventos globales
     requestAnimationFrame(draw); // Inicia el bucle de animación
