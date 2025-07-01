@@ -99,7 +99,10 @@
       justify-content: center;
       align-items: center;
       z-index: 4;
-      background-color: rgba(0, 0, 0, 0.95);
+      background-color: rgba(31, 31, 31, 0.95); /* Consistent with settings-group */
+      border-radius: 12px; /* Consistent with settings-group */
+      border: 2px solid rgba(255, 255, 255, 0.1); /* Consistent with settings-group */
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Consistent with settings-group */
       text-align: center;
       transition: opacity 0.3s ease;
     }
@@ -283,7 +286,10 @@
         justify-content: center;
         align-items: center;
         z-index: 4;
-        background-color: rgba(0, 0, 0, 0.95);
+        background-color: rgba(31, 31, 31, 0.95); /* Consistent with settings-group */
+        border-radius: 12px; /* Consistent with settings-group */
+        border: 2px solid rgba(255, 255, 255, 0.1); /* Consistent with settings-group */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Consistent with settings-group */
         text-align: center;
         transition: opacity 0.3s ease;
     }
@@ -419,6 +425,7 @@
         <div class="settings-options">
             <button id="colorModePerRound">Por Ronda</button>
             <button id="colorModeRainbow" class="active">Arcoíris</button>
+            <button id="colorModeMonochromatic">Monocromático</button> <!-- New Monochromatic button -->
         </div>
     </div>
 
@@ -597,6 +604,7 @@
       exitToMenuButton: document.getElementById('exitToMenuButton'), // New exit button
       colorModePerRound: document.getElementById('colorModePerRound'), // New color mode button
       colorModeRainbow: document.getElementById('colorModeRainbow'),   // New color mode button
+      colorModeMonochromatic: document.getElementById('colorModeMonochromatic'), // New monochromatic button
       gameInfoText: document.getElementById('gameInfoText'), // Reference to the info text
       scoreScreen: document.getElementById('scoreScreen'), // New score screen element
       finalScore: document.getElementById('finalScore'), // Final score display
@@ -859,6 +867,11 @@
       // Si el modo de color es "Por Ronda", establece el color una vez para la ronda
       if (gameState.colorMode === 'per_round') {
           currentColorIndex = Math.floor(Math.random() * PASTEL_COLORS.length); // Elige un color aleatorio para la ronda
+      } else if (gameState.colorMode === 'monochromatic') {
+          // Monochromatic mode: set a fixed grey/white color
+          currentColorIndex = 0; // Or any other index that maps to a grey/white if you add them to PASTEL_COLORS
+          // For now, let's just use a fixed grey for monochromatic
+          // We'll override the color selection logic in draw functions for monochromatic
       }
     }
 
@@ -956,7 +969,7 @@
         } else {
             // Si es un golpe MALO o FALLO, reinicia el combo
             gameState.combo = 0;
-            createHitFeedbackText(bestPrecision.text, bestPrecision.color);
+            createHitFeedbackText(bestPrecision.text, BASE_PRECISION.MISS.color); // Always use MISS color for broken combo feedback
             createComboFeedbackText('COMBO BROKEN!', '#FF7F7F'); // Texto rojo para combo roto
         }
       } else {
@@ -995,6 +1008,18 @@
     }
 
     /**
+     * Obtiene el color actual para el renderizado, basado en el modo de color.
+     * @param {string} defaultColor - El color pastel predeterminado si no es monocromático.
+     * @returns {string} El color hexadecimal a usar.
+     */
+    function getCurrentRenderColor(defaultColor) {
+        if (gameState.colorMode === 'monochromatic') {
+            return '#CCCCCC'; // A light grey for monochromatic elements
+        }
+        return defaultColor;
+    }
+
+    /**
      * Crea partículas visuales en un ángulo y color dados, reutilizando de un pool.
      * @param {number} angle - El ángulo en el círculo donde deben aparecer las partículas.
      * @param {string} color - El color de las partículas (cadena hexadecimal).
@@ -1026,7 +1051,7 @@
         particle.vy = Math.sin(particleAngle) * speed;
         particle.alpha = 1;
         particle.size = Math.random() * 4 + 2;
-        particle.color = color;
+        particle.color = getCurrentRenderColor(color); // Apply color mode here
         particle.isSquare = isSquare;
 
         gameState.particles.push(particle); // Agrega a las partículas activas
@@ -1050,7 +1075,7 @@
         textObj.x = mainCircle.x;
         textObj.y = mainCircle.y - mainCircle.radius * 0.5;
         textObj.alpha = 1;
-        textObj.color = color;
+        textObj.color = getCurrentRenderColor(color); // Apply color mode here
         textObj.startTime = gameState.globalTime;
         
         gameState.hitFeedbackTexts.push(textObj);
@@ -1070,7 +1095,7 @@
         textObj.x = mainCircle.x;
         textObj.y = mainCircle.y + mainCircle.radius * 0.5;
         textObj.alpha = 1;
-        textObj.color = color;
+        textObj.color = getCurrentRenderColor(color); // Apply color mode here
         textObj.startTime = gameState.globalTime;
 
         gameState.comboFeedbackTexts.push(textObj);
@@ -1090,7 +1115,7 @@
         textObj.x = mainCircle.x;
         textObj.y = mainCircle.y + mainCircle.radius * 0.0;
         textObj.alpha = 1;
-        textObj.color = color;
+        textObj.color = getCurrentRenderColor(color); // Apply color mode here
         textObj.startTime = gameState.globalTime;
 
         gameState.roundCompleteTexts.push(textObj);
@@ -1126,9 +1151,10 @@
 
         // Gradiente radial para un sutil efecto de brillo en el centro
         const gradientRadius = reelRadius * 0.8;
+        const glowColor = getCurrentRenderColor(PASTEL_COLORS[currentColorIndex]);
         const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, gradientRadius);
-        glowGradient.addColorStop(0, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.3)`); // Brillo interior
-        glowGradient.addColorStop(0.5, `rgba(${hexToRgb(PASTEL_COLORS[currentColorIndex])}, 0.1)`);
+        glowGradient.addColorStop(0, `rgba(${hexToRgb(glowColor)}, 0.3)`); // Brillo interior
+        glowGradient.addColorStop(0.5, `rgba(${hexToRgb(glowColor)}, 0.1)`);
         glowGradient.addColorStop(1, 'rgba(0,0,0,0)'); // Transparente exterior
 
         ctx.fillStyle = glowGradient;
@@ -1181,7 +1207,7 @@
             ctx.lineTo(triangleBase / 2, triangleHeight / 2); // Esquina inferior derecha
             ctx.closePath();
 
-            ctx.fillStyle = PASTEL_COLORS[(i + currentColorIndex) % PASTEL_COLORS.length]; // Cicla los colores
+            ctx.fillStyle = getCurrentRenderColor(PASTEL_COLORS[(i + currentColorIndex) % PASTEL_COLORS.length]); // Apply color mode here
             ctx.fill();
             ctx.restore(); // Restaura el estado del contexto
         }
@@ -1214,7 +1240,7 @@
 
         ctx.beginPath();
         ctx.arc(x, y, markerRadius, 0, Math.PI * 2);
-        ctx.fillStyle = PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length];
+        ctx.fillStyle = getCurrentRenderColor(PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length]); // Apply color mode here
         ctx.fill();
         ctx.strokeStyle = var_to_rgb('--main-border-color'); // Color de borde consistente
         ctx.lineWidth = 4; // Borde más grueso
@@ -1234,7 +1260,7 @@
       gameState.player.trail.push({
         angle: gameState.player.angle,
         alpha: 1,
-        color: PASTEL_COLORS[(currentColorIndex + 3) % PASTEL_COLORS.length]
+        color: getCurrentRenderColor(PASTEL_COLORS[(currentColorIndex + 3) % PASTEL_COLORS.length]) // Apply color mode here
       });
 
       if (gameState.player.trail.length > TRAIL_LENGTH) {
@@ -1267,7 +1293,7 @@
 
       ctx.beginPath();
       ctx.arc(x, y, gameState.player.radius, 0, Math.PI * 2);
-      ctx.fillStyle = PASTEL_COLORS[currentColorIndex];
+      ctx.fillStyle = getCurrentRenderColor(PASTEL_COLORS[currentColorIndex]); // Apply color mode here
       ctx.fill();
       ctx.strokeStyle = var_to_rgb('--main-border-color'); // Color de borde consistente
       ctx.lineWidth = 4; // Borde más grueso
@@ -1380,7 +1406,7 @@
             ctx.save();
             ctx.translate(square.x, square.y);
             ctx.rotate(square.rotation);
-            ctx.fillStyle = `rgba(${hexToRgb(square.color)}, ${square.alpha})`;
+            ctx.fillStyle = `rgba(${hexToRgb(getCurrentRenderColor(square.color))}, ${square.alpha})`; // Apply color mode here
             ctx.fillRect(-square.size / 2, -square.size / 2, square.size, square.size);
             ctx.restore();
         });
@@ -1396,12 +1422,12 @@
             if (line.x > currentCanvasWidth + line.length) line.x = -line.length;
             if (line.x < -line.length) line.x = currentCanvasWidth + line.length;
             if (line.y > currentCanvasHeight + line.length) line.y = -line.length;
-            if (line.y < -line.length) line.y = currentCanvasHeight + line.length;
+            if (line.y < -line.size) line.y = currentCanvasHeight + line.length;
 
             ctx.save();
             ctx.translate(line.x, line.y);
             ctx.rotate(line.angle);
-            ctx.strokeStyle = `rgba(${hexToRgb(line.color)}, ${line.alpha})`;
+            ctx.strokeStyle = `rgba(${hexToRgb(getCurrentRenderColor(line.color))}, ${line.alpha})`; // Apply color mode here
             ctx.lineWidth = 2; // Ancho de línea fijo
             ctx.beginPath();
             ctx.moveTo(-line.length / 2, 0);
@@ -1730,7 +1756,7 @@
         const playerRadian = gameState.player.angle * DEG_TO_RAD;
         const playerX = mainCircle.x + Math.cos(playerRadian) * mainCircle.radius;
         const playerY = mainCircle.y + Math.sin(playerRadian) * mainCircle.radius;
-        drawCircleWebGL(playerX, playerY, gameState.player.radius, PASTEL_COLORS[currentColorIndex]);
+        drawCircleWebGL(playerX, playerY, getCurrentRenderColor(PASTEL_COLORS[currentColorIndex])); // Apply color mode here
         
         // Dibuja los marcadores
         const markerRadius = mainCircle.radius * 0.05;
@@ -1738,7 +1764,7 @@
             const markerRadian = marker.angle * DEG_TO_RAD;
             const markerX = mainCircle.x + Math.cos(markerRadian) * mainCircle.radius;
             const markerY = mainCircle.y + Math.sin(markerRadian) * mainCircle.radius;
-            const color = marker.hit ? '#333333' : PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length];
+            const color = marker.hit ? '#333333' : getCurrentRenderColor(PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length]); // Apply color mode here
             drawCircleWebGL(markerX, markerY, markerRadius, color);
         });
         
@@ -1979,19 +2005,18 @@
 
     /**
      * Establece el modo de color para el juego.
-     * @param {string} mode - El modo de color deseado ('per_round', 'rainbow').
+     * @param {string} mode - El modo de color deseado ('per_round', 'rainbow', 'monochromatic').
      */
     function setColorMode(mode) {
         gameState.colorMode = mode;
-        if (gameState.colorMode === 'rainbow') {
+        if (mode === 'rainbow') {
             if (!colorUpdateIntervalId) { // Solo inicia si aún no está en ejecución
                 colorUpdateIntervalId = setInterval(updatePsychedelicColors, 700);
             }
         } else {
             clearInterval(colorUpdateIntervalId); // Detiene el cambio automático de color
             colorUpdateIntervalId = null;
-            // Opcionalmente, restablece a un color predeterminado o elige uno para la ronda actual
-            // Para el modo 'per_round', el color se establece en startRound()
+            // Para 'per_round' o 'monochromatic', el color se establece en startRound() o getCurrentRenderColor()
         }
         updateSettingsUI(); // Actualiza el botón activo en la UI
         saveSettings(); // Guarda la configuración después del cambio
@@ -2058,6 +2083,7 @@
         // Botones de modo de color
         elements.colorModePerRound.classList.toggle('active', gameState.colorMode === 'per_round');
         elements.colorModeRainbow.classList.toggle('active', gameState.colorMode === 'rainbow');
+        elements.colorModeMonochromatic.classList.toggle('active', gameState.colorMode === 'monochromatic'); // New monochromatic button
 
         // 2D Anti-Aliasing buttons
         elements.imageSmoothingSmooth.classList.toggle('active', gameState.imageSmoothingEnabled === true);
@@ -2278,6 +2304,7 @@
     // Adjunta oyentes a los nuevos botones de modo de color
     attachButtonListeners(elements.colorModePerRound, () => setColorMode('per_round'));
     attachButtonListeners(elements.colorModeRainbow, () => setColorMode('rainbow'));
+    attachButtonListeners(elements.colorModeMonochromatic, () => setColorMode('monochromatic')); // Attach listener for new monochromatic button
 
     // Adjunta oyentes a los nuevos botones de anti-aliasing 2D
     attachButtonListeners(elements.imageSmoothingSmooth, () => setImageSmoothing(true));
