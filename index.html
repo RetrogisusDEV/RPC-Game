@@ -452,13 +452,14 @@
 
   <script>
     // --- Constants and Configuration ---
-    // Game precision base settings (thresholds are in degrees)
+    // Game precision base settings (thresholds are in degrees).
+    // Values have been reduced for stricter precision.
     const BASE_PRECISION = {
-      NANO: { threshold: 1.5, score: 350, color: '#AECAD2', text: 'NANO!' },
-      PERFECT: { threshold: 3, score: 300, color: '#C3F8B7', text: 'PERFECT!' },
-      BEST: { threshold: 6, score: 150, color: '#FFFACD', text: 'BEST!' },
-      GOOD: { threshold: 10, score: 75, color: '#FFD1DC', text: 'GOOD' },
-      BAD: { threshold: 15, score: 25, color: '#D5B8FF', text: 'BAD' },
+      NANO: { threshold: 1.0, score: 350, color: '#AECAD2', text: 'NANO!' },
+      PERFECT: { threshold: 2.5, score: 300, color: '#C3F8B7', text: 'PERFECT!' },
+      BEST: { threshold: 5, score: 150, color: '#FFFACD', text: 'BEST!' },
+      GOOD: { threshold: 8, score: 75, color: '#FFD1DC', text: 'GOOD' },
+      BAD: { threshold: 12, score: 25, color: '#D5B8FF', text: 'BAD' },
       MISS: { threshold: Infinity, score: 0, color: '#FF7F7F', text: 'MISS' }
     };
 
@@ -507,7 +508,6 @@
     const MAX_PARTICLES = 200; // Max number of particles at any given time
     const MAX_FEEDBACK_TEXTS = 20; // Max number of hit/combo/round texts at any given time
     const DEG_TO_RAD = Math.PI / 180; // Precalculated constant for degree to radian conversion
-    const RAD_TO_DEG = 180 / Math.PI; // Precalculated constant for radian to degree conversion
 
     // --- Object Pools ---
     const particlePool = Array(MAX_PARTICLES).fill(null).map(() => ({})); // Initialize with empty objects
@@ -1237,6 +1237,9 @@
     }
 
     /** Draws and updates hit feedback texts. */
+    // NOTE: The three feedback text drawing functions are very similar.
+    // They are kept separate for clarity as their animation logic (font size, movement) differs slightly.
+    // A single generic function could be made, but it would add complexity.
     function drawHitFeedbackTexts(deltaTime) {
       gameState.hitFeedbackTexts = gameState.hitFeedbackTexts.filter(textObj => {
         const elapsed = gameState.globalTime - textObj.startTime;
@@ -1444,6 +1447,7 @@
         }
         console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
+        return undefined;
     }
 
     function createProgram(gl, vertexShader, fragmentShader) {
@@ -1457,9 +1461,11 @@
         }
         console.error('Program linking error:', gl.getProgramInfoLog(program));
         gl.deleteProgram(program);
+        return undefined;
     }
 
     function initWebGL() {
+        // Try to get WebGL2, fallback to WebGL1, then fail.
         gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
         if (!gl) {
             customAlert('Error', 'WebGL no es soportado por tu navegador.');
@@ -1469,7 +1475,10 @@
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        if (!vertexShader || !fragmentShader) return false;
+
         webglData.program = createProgram(gl, vertexShader, fragmentShader);
+        if (!webglData.program) return false;
 
         webglData.positionAttributeLocation = gl.getAttribLocation(webglData.program, "a_position");
         webglData.resolutionUniformLocation = gl.getUniformLocation(webglData.program, "u_resolution");
