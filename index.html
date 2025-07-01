@@ -362,7 +362,7 @@
         <h2>Renderizado</h2>
         <div class="settings-options">
             <button id="renderer2d" class="active">Canvas 2D</button>
-            <button id="rendererWebGL">WebGL 2</button>
+            <button id="rendererWebGL">WebGL</button>
         </div>
     </div>
 
@@ -524,7 +524,7 @@
 
     // --- DOM Elements ---
     const canvas = document.getElementById('gameCanvas'); // Main game canvas
-    const ctx = canvas.getContext('2d');
+    let ctx = null; // To be initialized based on renderer
     let gl = null; // To be initialized later
     
     const elements = {
@@ -602,6 +602,15 @@
       finalAccuracyValue: 0 // Store final accuracy for score screen
     };
 
+    // --- WebGL Data ---
+    let webglData = {
+        program: null,
+        positionAttributeLocation: null,
+        resolutionUniformLocation: null,
+        colorUniformLocation: null,
+        positionBuffer: null,
+    };
+
     // Main game circle object (for size and position reference)
     const mainCircle = { x: 0, y: 0, radius: 0 };
 
@@ -643,6 +652,18 @@
     /** Hides the custom alert modal. */
     function hideCustomAlert() {
         elements.customAlertModal.style.display = 'none';
+    }
+
+    /**
+     * Converts a hex color string to an array of normalized RGB values [r, g, b].
+     * @param {string} hex - The hex color string (e.g., "#RRGGBB").
+     * @returns {Array<number>} An array containing the RGB values from 0 to 1.
+     */
+    function hexToRgbNormalized(hex) {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        return [r, g, b];
     }
 
     /**
@@ -731,20 +752,21 @@
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
       
-      if (gameState.currentRenderer === '2d') {
+      if (gameState.currentRenderer === '2d' && ctx) {
         ctx.scale(dpr, dpr); // Scale context for high-DPI screens
       } else if (gl) {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       }
 
-
       // Initialize or resize the off-screen canvas for shaders
-      if (!tempCanvas) {
+      if (gameState.currentRenderer === '2d' && !tempCanvas) {
         tempCanvas = document.createElement('canvas');
         tempCtx = tempCanvas.getContext('2d');
       }
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
+      if (tempCanvas) {
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+      }
 
       // mainCircle.x and mainCircle.y are centered relative to the full canvas
       mainCircle.x = window.innerWidth / 2;
@@ -920,6 +942,10 @@
      * @param {boolean} isSquare - True if particles should be square, false for circular.
      */
     function createParticles(angle, color, isSquare = false) {
+      if (gameState.currentRenderer === 'webgl') {
+          // TODO: Implement WebGL particles
+          return;
+      }
       const radian = angle * DEG_TO_RAD;
       const spawnRadius = mainCircle.radius;
       const x = mainCircle.x + Math.cos(radian) * spawnRadius;
@@ -954,6 +980,10 @@
      * @param {string} color - The color of the text (hex string).
      */
     function createHitFeedbackText(text, color) {
+        if (gameState.currentRenderer === 'webgl') {
+            // TODO: Implement WebGL text rendering
+            return;
+        }
         const textObj = hitTextPool[nextAvailableHitTextIndex];
         nextAvailableHitTextIndex = (nextAvailableHitTextIndex + 1) % MAX_FEEDBACK_TEXTS;
 
@@ -973,6 +1003,7 @@
      * @param {string} color - The color of the text (hex string).
      */
     function createComboFeedbackText(text, color) {
+        if (gameState.currentRenderer === 'webgl') return;
         const textObj = comboTextPool[nextAvailableComboTextIndex];
         nextAvailableComboTextIndex = (nextAvailableComboTextIndex + 1) % MAX_FEEDBACK_TEXTS;
 
@@ -992,6 +1023,7 @@
      * @param {string} color - The color of the text (hex string).
      */
     function createRoundCompleteText(text, color) {
+        if (gameState.currentRenderer === 'webgl') return;
         const textObj = roundCompleteTextPool[nextAvailableRoundCompleteTextIndex];
         nextAvailableRoundCompleteTextIndex = (nextAvailableRoundCompleteTextIndex + 1) % MAX_FEEDBACK_TEXTS;
 
@@ -1365,8 +1397,8 @@
         ctx.restore(); // Restore context state to reset globalCompositeOperation and filter
     }
 
-    /** Draws all core game elements. */
-    function drawCoreGameElements(deltaTime) {
+    /** Draws all core game elements for 2D Canvas. */
+    function drawCoreGameElements2D(deltaTime) {
         drawCentralReel();
         drawInnerBorderTriangles();
         drawMarkers();
@@ -1380,25 +1412,129 @@
     }
 
     // --- WebGL Rendering ---
-    function initWebGL() {
-        gl = canvas.getContext('webgl2');
-        if (!gl) {
-            customAlert('Error', 'WebGL 2 no es soportado por tu navegador.');
-            setRenderer('2d'); // Fallback to 2D
-            return;
+    const vertexShaderSource = `
+        attribute vec2 a_position;
+        uniform vec2 u_resolution;
+        void main() {
+            // convert the position from pixels to 0.0 to 1.0
+            vec2 zeroToOne = a_position / u_resolution;
+            // convert from 0->1 to 0->2
+            vec2 zeroToTwo = zeroToOne * 2.0;
+            // convert from 0->2 to -1->+1 (clip space)
+            vec2 clipSpace = zeroToTwo - 1.0;
+            gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
         }
-        // Basic WebGL setup can go here (shaders, programs, buffers)
-        // For now, we'll just clear the screen in the drawWebGL function.
+    `;
+
+    const fragmentShaderSource = `
+        precision mediump float;
+        uniform vec4 u_color;
+        void main() {
+            gl_FragColor = u_color;
+        }
+    `;
+
+    function createShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        if (success) {
+            return shader;
+        }
+        console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
     }
 
-    function drawWebGL(timestamp) {
+    function createProgram(gl, vertexShader, fragmentShader) {
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        const success = gl.getProgramParameter(program, gl.LINK_STATUS);
+        if (success) {
+            return program;
+        }
+        console.error('Program linking error:', gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+    }
+
+    function initWebGL() {
+        gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        if (!gl) {
+            customAlert('Error', 'WebGL no es soportado por tu navegador.');
+            setRenderer('2d'); // Fallback to 2D
+            return false;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        webglData.program = createProgram(gl, vertexShader, fragmentShader);
+
+        webglData.positionAttributeLocation = gl.getAttribLocation(webglData.program, "a_position");
+        webglData.resolutionUniformLocation = gl.getUniformLocation(webglData.program, "u_resolution");
+        webglData.colorUniformLocation = gl.getUniformLocation(webglData.program, "u_color");
+
+        webglData.positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, webglData.positionBuffer);
+
+        return true;
+    }
+
+    function drawCircleWebGL(centerX, centerY, radius, color) {
+        const segments = 32;
+        const vertices = [centerX, centerY];
+        for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * 2 * Math.PI;
+            vertices.push(centerX + Math.cos(angle) * radius);
+            vertices.push(centerY + Math.sin(angle) * radius);
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        
+        const normalizedColor = hexToRgbNormalized(color);
+        gl.uniform4f(webglData.colorUniformLocation, normalizedColor[0], normalizedColor[1], normalizedColor[2], 1);
+        
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, segments + 2);
+    }
+
+    function drawCoreGameElementsWebGL(deltaTime) {
+        // Draw main circle border (as a slightly larger white circle behind)
+        drawCircleWebGL(mainCircle.x, mainCircle.y, mainCircle.radius + 6, '#FFFFFF');
+
+        // Draw player
+        const playerRadian = gameState.player.angle * DEG_TO_RAD;
+        const playerX = mainCircle.x + Math.cos(playerRadian) * mainCircle.radius;
+        const playerY = mainCircle.y + Math.sin(playerRadian) * mainCircle.radius;
+        drawCircleWebGL(playerX, playerY, gameState.player.radius, PASTEL_COLORS[currentColorIndex]);
+        
+        // Draw markers
+        const markerRadius = mainCircle.radius * 0.05;
+        gameState.activeMarkers.forEach(marker => {
+            const markerRadian = marker.angle * DEG_TO_RAD;
+            const markerX = mainCircle.x + Math.cos(markerRadian) * mainCircle.radius;
+            const markerY = mainCircle.y + Math.sin(markerRadian) * mainCircle.radius;
+            const color = marker.hit ? '#333333' : PASTEL_COLORS[(currentColorIndex + 2) % PASTEL_COLORS.length];
+            drawCircleWebGL(markerX, markerY, markerRadius, color);
+        });
+        
+        updatePlayer(deltaTime);
+    }
+
+    function drawWebGL(timestamp, deltaTime) {
         if (!gl) return;
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clearColor(0.05, 0.05, 0.05, 1.0); // Dark grey background
         gl.clear(gl.COLOR_BUFFER_BIT);
         
-        // TODO: Implement WebGL drawing logic here
-        // This would involve setting up shaders, buffers, and drawing calls
-        // to replicate the 2D canvas visuals.
+        gl.useProgram(webglData.program);
+        gl.enableVertexAttribArray(webglData.positionAttributeLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, webglData.positionBuffer);
+        gl.vertexAttribPointer(webglData.positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+        gl.uniform2f(webglData.resolutionUniformLocation, gl.canvas.clientWidth, gl.canvas.clientHeight);
+        
+        if (gameState.phase === 'playing' || gameState.phase === 'paused' || gameState.phase === 'ended' || gameState.phase === 'roundComplete') {
+            drawCoreGameElementsWebGL(deltaTime);
+        }
     }
 
 
@@ -1418,12 +1554,13 @@
       }
 
       if (gameState.currentRenderer === 'webgl') {
-          drawWebGL(timestamp);
+          drawWebGL(timestamp, deltaTime);
           requestAnimationFrame(draw);
           return;
       }
 
       // --- 2D CANVAS RENDERING ---
+      if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height); // Always clear the entire canvas to handle animated background elements correctly
 
       // Only draw game-specific visuals if NOT in the main menu, settings, or score screen.
@@ -1439,9 +1576,9 @@
 
         // Render game elements based on current phase
         if (gameState.phase === 'playing') {
-          drawCoreGameElements(deltaTime);
+          drawCoreGameElements2D(deltaTime);
         } else if (gameState.phase === 'roundComplete') {
-          drawCoreGameElements(deltaTime);
+          drawCoreGameElements2D(deltaTime);
           
           // Check if it's time to start the next round
           if (gameState.globalTime >= gameState.nextRoundStartTime) {
@@ -1454,7 +1591,7 @@
         } else if (gameState.phase === 'paused' || gameState.phase === 'ended') {
             // When paused or ended, draw static game elements (without updates for core game logic,
             // but transient animations like particles/texts still progress).
-            drawCoreGameElements(deltaTime);
+            drawCoreGameElements2D(deltaTime);
         } else if (gameState.phase === 'introAnimation') {
             const elapsed = gameState.globalTime - gameState.introAnimationStartTime;
             const progress = Math.min(1, elapsed / INTRO_ANIMATION_DURATION);
@@ -1510,9 +1647,13 @@
      * @param {string} renderer - The renderer to use ('2d' or 'webgl').
      */
     function setRenderer(renderer) {
-        if (renderer === 'webgl' && !gl) {
-            initWebGL();
-            if (!gl) return; // If WebGL init failed, don't switch
+        if (renderer === 'webgl') {
+            if (!gl && !initWebGL()) {
+                return; // If WebGL init failed, don't switch
+            }
+            ctx = null; // We are no longer using 2D context
+        } else {
+            ctx = canvas.getContext('2d');
         }
         gameState.currentRenderer = renderer;
         updateSettingsUI();
