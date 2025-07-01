@@ -472,15 +472,15 @@
 
     // Graphics settings: (num_background_squares, particles_count, num_background_lines)
     const GRAPHICS_SETTINGS = {
-        'low': { squares: 10, particles: 10, lines: 5 },
-        'medium': { squares: 40, particles: 25, lines: 15 },
-        'high': { squares: 80, particles: 50, lines: 30 }
+        'low': { squares: 20, particles: 10, lines: 10 },
+        'medium': { squares: 70, particles: 35, lines: 35 },
+        'high': { squares: 150, particles: 100, lines: 60 }
     };
 
     const TRAIL_LENGTH = 20;
     const HIT_TEXT_LIFETIME = 900;
     const TRIANGLE_COUNT_MAIN_CIRCLE = 16;
-    const TRIANGLE_SIZE_MAIN = 0.02;
+    const TRIANGLE_SIZE_MAIN = 0.05;
 
     const COMBO_TEXT_LIFETIME = 1500; // Duration for "COMBO X!" text
     const ROUND_COMPLETE_TEXT_LIFETIME = 2000; // 2 seconds for "ROUND X COMPLETED!" text
@@ -635,7 +635,7 @@
 
     // Debounce variable for gameplay input (keyboard and touch)
     let lastGameplayInputTime = 0;
-    const GAMEPLAY_INPUT_COOLDOWN = 200; // 200ms cooldown to prevent multiple rapid taps
+    const GAMEPLAY_INPUT_COOLDOWN = 20; // 20ms cooldown to prevent multiple rapid taps
 
     // --- Utility Functions ---
     /**
@@ -1904,7 +1904,7 @@
         showGameInfoText(); // Show info text when returning to main menu
     });
     attachButtonListeners(elements.aboutButton, () => {
-        customAlert('Acerca de', 'Juego de Ritmo Psico Minimalista\nDesarrollado con amor y colores pastel.');
+        customAlert('Acerca de', 'Juego de Ritmo Psico Minimalista\nDesarrollado con amor y colores pastel.\nPor RetrogisusDEV\nv0.1.0');
     });
 
     // Attach listeners to pause menu buttons
