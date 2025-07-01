@@ -359,6 +359,14 @@
     <h1>Configuración</h1>
 
     <div class="settings-group">
+        <h2>Renderizado</h2>
+        <div class="settings-options">
+            <button id="renderer2d" class="active">Canvas 2D</button>
+            <button id="rendererWebGL">WebGL 2</button>
+        </div>
+    </div>
+
+    <div class="settings-group">
         <h2>Gráficos</h2>
         <div class="settings-options">
             <button id="graphicsLow">Baja</button>
@@ -517,6 +525,7 @@
     // --- DOM Elements ---
     const canvas = document.getElementById('gameCanvas'); // Main game canvas
     const ctx = canvas.getContext('2d');
+    let gl = null; // To be initialized later
     
     const elements = {
       score: document.getElementById('score'),
@@ -529,6 +538,8 @@
       aboutButton: document.getElementById('aboutButton'),
       settingsMenu: document.getElementById('settingsMenu'),
       backToMainMenuButton: document.getElementById('backToMainMenuButton'),
+      renderer2d: document.getElementById('renderer2d'),
+      rendererWebGL: document.getElementById('rendererWebGL'),
       graphicsLow: document.getElementById('graphicsLow'),
       graphicsMedium: document.getElementById('graphicsMedium'),
       graphicsHigh: document.getElementById('graphicsHigh'),
@@ -578,6 +589,7 @@
       },
       startTime: 0,
       globalTime: 0,
+      currentRenderer: '2d', // '2d' or 'webgl'
       currentDifficulty: 'normal', // Default difficulty
       currentGraphicsQuality: 'medium', // Default graphics quality
       activeShader: 'none', // 'none', 'invert', 'chromatic_glow'
@@ -718,7 +730,13 @@
       canvas.height = window.innerHeight * dpr;
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
-      ctx.scale(dpr, dpr); // Scale context for high-DPI screens
+      
+      if (gameState.currentRenderer === '2d') {
+        ctx.scale(dpr, dpr); // Scale context for high-DPI screens
+      } else if (gl) {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      }
+
 
       // Initialize or resize the off-screen canvas for shaders
       if (!tempCanvas) {
@@ -1361,6 +1379,29 @@
         drawRoundCompleteTexts(deltaTime);
     }
 
+    // --- WebGL Rendering ---
+    function initWebGL() {
+        gl = canvas.getContext('webgl2');
+        if (!gl) {
+            customAlert('Error', 'WebGL 2 no es soportado por tu navegador.');
+            setRenderer('2d'); // Fallback to 2D
+            return;
+        }
+        // Basic WebGL setup can go here (shaders, programs, buffers)
+        // For now, we'll just clear the screen in the drawWebGL function.
+    }
+
+    function drawWebGL(timestamp) {
+        if (!gl) return;
+        gl.clearColor(0.05, 0.05, 0.05, 1.0); // Dark grey background
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
+        // TODO: Implement WebGL drawing logic here
+        // This would involve setting up shaders, buffers, and drawing calls
+        // to replicate the 2D canvas visuals.
+    }
+
+
     // --- Render Loop ---
     /**
      * Main game rendering and update loop.
@@ -1376,6 +1417,13 @@
         gameState.globalTime += deltaTime;
       }
 
+      if (gameState.currentRenderer === 'webgl') {
+          drawWebGL(timestamp);
+          requestAnimationFrame(draw);
+          return;
+      }
+
+      // --- 2D CANVAS RENDERING ---
       ctx.clearRect(0, 0, canvas.width, canvas.height); // Always clear the entire canvas to handle animated background elements correctly
 
       // Only draw game-specific visuals if NOT in the main menu, settings, or score screen.
@@ -1458,6 +1506,21 @@
 
     // --- Settings Functions ---
     /**
+     * Sets the renderer.
+     * @param {string} renderer - The renderer to use ('2d' or 'webgl').
+     */
+    function setRenderer(renderer) {
+        if (renderer === 'webgl' && !gl) {
+            initWebGL();
+            if (!gl) return; // If WebGL init failed, don't switch
+        }
+        gameState.currentRenderer = renderer;
+        updateSettingsUI();
+        saveSettings();
+        setCanvasSize(); // Re-run to set correct context scaling
+    }
+
+    /**
      * Sets the graphics quality and updates related parameters.
      * @param {string} quality - The desired graphics quality ('low', 'medium', 'high').
      */
@@ -1513,6 +1576,10 @@
 
     /** Updates the 'active' class for buttons in the settings UI. */
     function updateSettingsUI() {
+        // Renderer buttons
+        elements.renderer2d.classList.toggle('active', gameState.currentRenderer === '2d');
+        elements.rendererWebGL.classList.toggle('active', gameState.currentRenderer === 'webgl');
+
         // Graphics buttons
         elements.graphicsLow.classList.toggle('active', gameState.currentGraphicsQuality === 'low');
         elements.graphicsMedium.classList.toggle('active', gameState.currentGraphicsQuality === 'medium');
@@ -1547,6 +1614,7 @@
     /** Saves current game settings to localStorage. */
     function saveSettings() {
         const settings = {
+            renderer: gameState.currentRenderer,
             graphics: gameState.currentGraphicsQuality,
             difficulty: gameState.currentDifficulty,
             shader: gameState.activeShader,
@@ -1561,12 +1629,14 @@
         if (savedSettings) {
             const settings = JSON.parse(savedSettings);
             // Apply loaded settings, ensuring defaults if a setting is missing
+            setRenderer(settings.renderer || '2d');
             setGraphicsQuality(settings.graphics || 'medium');
             setDifficulty(settings.difficulty || 'normal');
             setShaderEffect(settings.shader || 'none');
             setColorMode(settings.colorMode || 'rainbow'); // This will also manage the color update interval
         } else {
             // Apply initial defaults if no settings are saved
+            setRenderer('2d');
             setGraphicsQuality('medium');
             setDifficulty('normal');
             setShaderEffect('none');
@@ -1711,6 +1781,10 @@
     // Attach listener to custom alert close button
     attachButtonListeners(elements.customAlertCloseButton, hideCustomAlert);
 
+    // Attach listeners to renderer settings buttons
+    attachButtonListeners(elements.renderer2d, () => setRenderer('2d'));
+    attachButtonListeners(elements.rendererWebGL, () => setRenderer('webgl'));
+
     // Attach listeners to graphics settings buttons
     attachButtonListeners(elements.graphicsLow, () => setGraphicsQuality('low'));
     attachButtonListeners(elements.graphicsMedium, () => setGraphicsQuality('medium'));
@@ -1740,7 +1814,7 @@
     });
 
     // --- Initialization ---
-    setCanvasSize(); // Set initial canvas size and initialize background squares
+    window.addEventListener('resize', setCanvasSize);
     loadSettings(); // Load settings from localStorage on startup
     setupEventListeners(); // Setup global event listeners
     requestAnimationFrame(draw); // Start animation loop
