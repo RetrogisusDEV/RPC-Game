@@ -401,6 +401,15 @@
         </div>
     </div>
 
+    <div class="settings-group">
+        <h2>Anti-Aliasing (WebGL)</h2>
+        <div class="settings-options">
+            <button id="antiAliasingNone" class="active">Ninguno</button>
+            <button id="antiAliasingMSAAx2">MSAA x2</button>
+            <button id="antiAliasingFXAA">FXAA</button>
+        </div>
+    </div>
+
     <button id="backToMainMenuButton" class="menu-option-button">Volver</button>
   </div>
 
@@ -566,7 +575,10 @@
       finalRank: document.getElementById('finalRank'), // Final rank display
       playAgainButton: document.getElementById('playAgainButton'), // Play again button
       introAnimationText: document.getElementById('introAnimationText'), // Intro animation text
-      orientationWarning: document.getElementById('orientationWarning') // Orientation warning
+      orientationWarning: document.getElementById('orientationWarning'), // Orientation warning
+      antiAliasingNone: document.getElementById('antiAliasingNone'), // New AA button
+      antiAliasingMSAAx2: document.getElementById('antiAliasingMSAAx2'), // New AA button
+      antiAliasingFXAA: document.getElementById('antiAliasingFXAA'), // New AA button
     };
 
     // --- Game State ---
@@ -599,7 +611,8 @@
       colorMode: 'rainbow', // Default color mode
       introAnimationStartTime: 0, // For intro animation
       finalScoreValue: 0, // Store final score for score screen
-      finalAccuracyValue: 0 // Store final accuracy for score screen
+      finalAccuracyValue: 0, // Store final accuracy for score screen
+      currentAntiAliasing: 'none', // 'none', 'msaa_x2', 'fxaa'
     };
 
     // --- WebGL Data ---
@@ -609,6 +622,21 @@
         resolutionUniformLocation: null,
         colorUniformLocation: null,
         positionBuffer: null,
+
+        // MSAA related
+        msaaFramebuffer: null,
+        msaaRenderbuffer: null,
+        msaaTexture: null, // For blitting to a texture if needed for post-processing chain
+
+        // FXAA related
+        fxaaProgram: null,
+        fxaaPositionLocation: null,
+        fxaaTexCoordLocation: null,
+        fxaaResolutionUniform: null,
+        fxaaSamplerUniform: null,
+        quadBuffer: null,
+        sceneTextureFramebuffer: null,
+        sceneTexture: null,
     };
 
     // Main game circle object (for size and position reference)
@@ -1440,6 +1468,69 @@
         }
     `;
 
+    // FXAA Shaders
+    const fxaaVertexShaderSource = `
+        attribute vec2 a_position;
+        varying vec2 v_texCoord;
+        void main() {
+            gl_Position = vec4(a_position, 0, 1);
+            v_texCoord = (a_position * 0.5) + 0.5; // Convert clip space to texture space (0 to 1)
+        }
+    `;
+    const fxaaFragmentShaderSource = `
+        precision mediump float;
+        uniform sampler2D u_sampler;
+        uniform vec2 u_resolution;
+        varying vec2 v_texCoord;
+
+        #define FXAA_REDUCE_MIN (1.0/128.0)
+        #define FXAA_REDUCE_MUL (1.0/8.0)
+        #define FXAA_SPAN_MAX 8.0
+
+        void main() {
+            vec3 rgbNW = texture2D(u_sampler, v_texCoord + (vec2(-1.0, -1.0) / u_resolution)).xyz;
+            vec3 rgbNE = texture2D(u_sampler, v_texCoord + (vec2(1.0, -1.0) / u_resolution)).xyz;
+            vec3 rgbSW = texture2D(u_sampler, v_texCoord + (vec2(-1.0, 1.0) / u_resolution)).xyz;
+            vec3 rgbSE = texture2D(u_sampler, v_texCoord + (vec2(1.0, 1.0) / u_resolution)).xyz;
+            vec3 rgbM  = texture2D(u_sampler, v_texCoord).xyz;
+
+            vec3 luma = vec3(0.299, 0.587, 0.114);
+            float lumaNW = dot(rgbNW, luma);
+            float lumaNE = dot(rgbNE, luma);
+            float lumaSW = dot(rgbSW, luma);
+            float lumaSE = dot(rgbSE, luma);
+            float lumaM  = dot(rgbM,  luma);
+
+            float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+            float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+
+            vec2 dir;
+            dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
+            dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+
+            float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * (0.25 * FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);
+            float rcpDirMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);
+            dir = min(vec2( FXAA_SPAN_MAX,  FXAA_SPAN_MAX),
+                      max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),
+                      dir * rcpDirMin)) / u_resolution;
+
+            vec3 rgbA = 0.5 * (
+                texture2D(u_sampler, v_texCoord + dir * (1.0/3.0 - 0.5)).xyz +
+                texture2D(u_sampler, v_texCoord + dir * (2.0/3.0 - 0.5)).xyz);
+            vec3 rgbB = rgbA * 0.5 + 0.25 * (
+                texture2D(u_sampler, v_texCoord + dir * -0.5).xyz +
+                texture2D(u_sampler, v_texCoord + dir * 0.5).xyz);
+
+            float lumaB = dot(rgbB, luma);
+            if ((lumaB < lumaMin) || (lumaB > lumaMax)) {
+                gl_FragColor = vec4(rgbA, 1.0);
+            } else {
+                gl_FragColor = vec4(rgbB, 1.0);
+            }
+        }
+    `;
+
+
     function createShader(gl, type, source) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, source);
@@ -1468,11 +1559,12 @@
     }
 
     function initWebGL() {
-        // Intenta obtener WebGL2, si falla, WebGL1, luego falla.
-        gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        // Try to get WebGL2, fallback to WebGL1, then fail.
+        // Disable default anti-aliasing if we plan to use custom AA
+        gl = canvas.getContext('webgl2', { antialias: false }) || canvas.getContext('webgl', { antialias: false }); 
         if (!gl) {
             customAlert('Error', 'WebGL no es soportado por tu navegador.');
-            setRenderer('2d'); // Vuelve a 2D
+            setRenderer('2d'); // Fallback to 2D
             return false;
         }
 
@@ -1489,6 +1581,96 @@
 
         webglData.positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, webglData.positionBuffer);
+
+        // Clear previous FBOs and textures if re-initializing
+        if (webglData.msaaFramebuffer) gl.deleteFramebuffer(webglData.msaaFramebuffer);
+        if (webglData.msaaRenderbuffer) gl.deleteRenderbuffer(webglData.msaaRenderbuffer);
+        if (webglData.msaaTexture) gl.deleteTexture(webglData.msaaTexture);
+        if (webglData.sceneTextureFramebuffer) gl.deleteFramebuffer(webglData.sceneTextureFramebuffer);
+        if (webglData.sceneTexture) gl.deleteTexture(webglData.sceneTexture);
+        if (webglData.fxaaProgram) gl.deleteProgram(webglData.fxaaProgram);
+        if (webglData.quadBuffer) gl.deleteBuffer(webglData.quadBuffer);
+
+        webglData.msaaFramebuffer = null;
+        webglData.msaaRenderbuffer = null;
+        webglData.msaaTexture = null;
+        webglData.sceneTextureFramebuffer = null;
+        webglData.sceneTexture = null;
+        webglData.fxaaProgram = null;
+        webglData.quadBuffer = null;
+
+        // Setup for MSAA (WebGL2 only)
+        if (gl instanceof WebGL2RenderingContext && gameState.currentAntiAliasing === 'msaa_x2') {
+            webglData.msaaFramebuffer = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, webglData.msaaFramebuffer);
+
+            webglData.msaaRenderbuffer = gl.createRenderbuffer();
+            gl.bindRenderbuffer(gl.RENDERBUFFER, webglData.msaaRenderbuffer);
+            gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 2, gl.RGBA8, canvas.width, canvas.height); // MSAA x2
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, webglData.msaaRenderbuffer);
+
+            const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+            if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error('MSAA Framebuffer not complete:', fbStatus);
+                gameState.currentAntiAliasing = 'none'; // Fallback
+                customAlert('Advertencia', 'MSAA x2 no pudo ser inicializado. Usando sin Anti-Aliasing.');
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
+                return initWebGL(); // Re-initialize without MSAA
+            }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
+        }
+
+        // Setup for FXAA
+        if (gameState.currentAntiAliasing === 'fxaa') {
+            // Create a texture to render the scene into
+            webglData.sceneTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, webglData.sceneTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); // Added for better quality
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            // Create a framebuffer to attach the texture
+            webglData.sceneTextureFramebuffer = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, webglData.sceneTextureFramebuffer);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, webglData.sceneTexture, 0);
+
+            const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+            if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error('FXAA Texture Framebuffer not complete:', fbStatus);
+                gameState.currentAntiAliasing = 'none'; // Fallback
+                customAlert('Advertencia', 'FXAA no pudo ser inicializado. Usando sin Anti-Aliasing.');
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
+                return initWebGL(); // Re-initialize without FXAA
+            }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind FBO
+
+            // Initialize FXAA shaders
+            const fxaaVertexShader = createShader(gl, gl.VERTEX_SHADER, fxaaVertexShaderSource);
+            const fxaaFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fxaaFragmentShaderSource);
+            if (!fxaaVertexShader || !fxaaFragmentShader) return false;
+
+            webglData.fxaaProgram = createProgram(gl, fxaaVertexShader, fxaaFragmentShader);
+            if (!webglData.fxaaProgram) return false;
+
+            webglData.fxaaPositionLocation = gl.getAttribLocation(webglData.fxaaProgram, "a_position");
+            webglData.fxaaResolutionUniform = gl.getUniformLocation(webglData.fxaaProgram, "u_resolution");
+            webglData.fxaaSamplerUniform = gl.getUniformLocation(webglData.fxaaProgram, "u_sampler");
+
+            // Create a buffer for a fullscreen quad
+            webglData.quadBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, webglData.quadBuffer);
+            const positions = [
+                -1, -1, // bottom-left
+                 1, -1, // bottom-right
+                -1,  1, // top-left
+                -1,  1, // top-left
+                 1, -1, // bottom-right
+                 1,  1, // top-right
+            ];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+        }
 
         return true;
     }
@@ -1534,18 +1716,59 @@
 
     function drawWebGL(timestamp, deltaTime) {
         if (!gl) return;
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        gl.clearColor(0.05, 0.05, 0.05, 1.0); // Fondo gris oscuro
+
+        // Determine target framebuffer for rendering the scene
+        let targetFramebuffer = null;
+        if (gl instanceof WebGL2RenderingContext && gameState.currentAntiAliasing === 'msaa_x2') {
+            targetFramebuffer = webglData.msaaFramebuffer;
+        } else if (gameState.currentAntiAliasing === 'fxaa') {
+            targetFramebuffer = webglData.sceneTextureFramebuffer;
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, targetFramebuffer);
+        gl.viewport(0, 0, canvas.width, canvas.height); // Use canvas.width/height for FBOs
+        gl.clearColor(0.05, 0.05, 0.05, 1.0); // Dark grey background
         gl.clear(gl.COLOR_BUFFER_BIT);
         
         gl.useProgram(webglData.program);
         gl.enableVertexAttribArray(webglData.positionAttributeLocation);
         gl.bindBuffer(gl.ARRAY_BUFFER, webglData.positionBuffer);
         gl.vertexAttribPointer(webglData.positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.uniform2f(webglData.resolutionUniformLocation, gl.canvas.clientWidth, gl.canvas.clientHeight);
-        
+        gl.uniform2f(webglData.resolutionUniformLocation, canvas.width, canvas.height); // Use FBO dimensions
+
         if (gameState.phase === 'playing' || gameState.phase === 'paused' || gameState.phase === 'ended' || gameState.phase === 'roundComplete') {
             drawCoreGameElementsWebGL(deltaTime);
+        }
+
+        // Post-processing for anti-aliasing
+        if (gl instanceof WebGL2RenderingContext && gameState.currentAntiAliasing === 'msaa_x2') {
+            // Blit multisampled framebuffer to default framebuffer
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, webglData.msaaFramebuffer);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null); // Default framebuffer
+            gl.clearBufferfv(gl.COLOR, 0, [0.05, 0.05, 0.05, 1.0]); // Clear default buffer before blit
+            gl.blitFramebuffer(
+                0, 0, canvas.width, canvas.height,
+                0, 0, canvas.width, canvas.height,
+                gl.COLOR_BUFFER_BIT, gl.NEAREST
+            );
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); // Unbind READ_FRAMEBUFFER
+        } else if (gameState.currentAntiAliasing === 'fxaa') {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Render to default framebuffer
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); // Back to viewport dimensions
+            gl.clearColor(0.05, 0.05, 0.05, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.useProgram(webglData.fxaaProgram);
+            gl.enableVertexAttribArray(webglData.fxaaPositionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, webglData.quadBuffer);
+            gl.vertexAttribPointer(webglData.fxaaPositionLocation, 2, gl.FLOAT, false, 0, 0);
+
+            gl.uniform2f(webglData.fxaaResolutionUniform, canvas.width, canvas.height);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, webglData.sceneTexture);
+            gl.uniform1i(webglData.fxaaSamplerUniform, 0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw the fullscreen quad
         }
     }
 
@@ -1660,17 +1883,30 @@
      */
     function setRenderer(renderer) {
         if (renderer === 'webgl') {
-            if (!gl && !initWebGL()) {
-                return; // Si la inicialización de WebGL falló, no cambia
+            if (!gl || gameState.currentRenderer !== 'webgl') { // Only re-initialize if not already webgl or gl is null
+                if (!initWebGL()) {
+                    return; // If WebGL init failed, don't switch
+                }
             }
-            ctx = null; // Ya no estamos usando el contexto 2D
+            ctx = null; // We are no longer using 2D context
         } else {
             ctx = canvas.getContext('2d');
+            // If switching from WebGL, ensure to clean up WebGL resources
+            if (gl) {
+                if (webglData.msaaFramebuffer) gl.deleteFramebuffer(webglData.msaaFramebuffer);
+                if (webglData.msaaRenderbuffer) gl.deleteRenderbuffer(webglData.msaaRenderbuffer);
+                if (webglData.msaaTexture) gl.deleteTexture(webglData.msaaTexture);
+                if (webglData.sceneTextureFramebuffer) gl.deleteFramebuffer(webglData.sceneTextureFramebuffer);
+                if (webglData.sceneTexture) gl.deleteTexture(webglData.sceneTexture);
+                if (webglData.fxaaProgram) gl.deleteProgram(webglData.fxaaProgram);
+                if (webglData.quadBuffer) gl.deleteBuffer(webglData.quadBuffer);
+                gl = null; // Clear gl context
+            }
         }
         gameState.currentRenderer = renderer;
         updateSettingsUI();
         saveSettings();
-        setCanvasSize(); // Vuelve a ejecutar para establecer la escala de contexto correcta
+        setCanvasSize(); // Re-run to set correct context scaling
     }
 
     /**
@@ -1727,6 +1963,30 @@
         saveSettings(); // Guarda la configuración después del cambio
     }
 
+    /**
+     * Establece el modo de anti-aliasing para WebGL.
+     * @param {string} mode - El modo de anti-aliasing a activar ('none', 'msaa_x2', 'fxaa').
+     */
+    function setAntiAliasing(mode) {
+        if (gameState.currentAntiAliasing === mode) return; // No change needed
+
+        // If switching to MSAA or FXAA, or from them, re-initialize WebGL context
+        const requiresReinit = (mode === 'msaa_x2' || mode === 'fxaa' || gameState.currentAntiAliasing === 'msaa_x2' || gameState.currentAntiAliasing === 'fxaa');
+
+        gameState.currentAntiAliasing = mode;
+        if (requiresReinit && gameState.currentRenderer === 'webgl') {
+            // Force re-initialization of WebGL context
+            setRenderer('webgl'); // This will call initWebGL internally and clean up
+        } else if (gameState.currentRenderer === '2d') {
+            // If in 2D mode, just update the setting, it will apply if they switch to WebGL later
+            updateSettingsUI();
+            saveSettings();
+        } else { // Already in WebGL, but not switching AA modes that require full reinit
+            updateSettingsUI();
+            saveSettings();
+        }
+    }
+
     /** Actualiza la clase 'active' para los botones en la UI de configuración. */
     function updateSettingsUI() {
         // Botones de renderizador
@@ -1751,14 +2011,19 @@
         // Botones de modo de color
         elements.colorModePerRound.classList.toggle('active', gameState.colorMode === 'per_round');
         elements.colorModeRainbow.classList.toggle('active', gameState.colorMode === 'rainbow');
+
+        // Anti-Aliasing buttons
+        elements.antiAliasingNone.classList.toggle('active', gameState.currentAntiAliasing === 'none');
+        elements.antiAliasingMSAAx2.classList.toggle('active', gameState.currentAntiAliasing === 'msaa_x2');
+        elements.antiAliasingFXAA.classList.toggle('active', gameState.currentAntiAliasing === 'fxaa');
     }
 
-    /** Oculta el texto de información del juego después de un retraso. */
+    /** Hides the game info text after a delay. */
     function hideGameInfoText() {
         elements.gameInfoText.classList.add('hidden');
     }
 
-    /** Muestra el texto de información del juego. */
+    /** Shows the game info text. */
     function showGameInfoText() {
         elements.gameInfoText.classList.remove('hidden');
     }
@@ -1771,7 +2036,8 @@
             graphics: gameState.currentGraphicsQuality,
             difficulty: gameState.currentDifficulty,
             shader: gameState.activeShader,
-            colorMode: gameState.colorMode
+            colorMode: gameState.colorMode,
+            antiAliasing: gameState.currentAntiAliasing // Save new setting
         };
         localStorage.setItem('rpcgSettings', JSON.stringify(settings));
     }
@@ -1786,16 +2052,18 @@
             setGraphicsQuality(settings.graphics || 'medium');
             setDifficulty(settings.difficulty || 'normal');
             setShaderEffect(settings.shader || 'none');
-            setColorMode(settings.colorMode || 'rainbow'); // Esto también gestionará el intervalo de actualización de color
+            setColorMode(settings.colorMode || 'rainbow');
+            setAntiAliasing(settings.antiAliasing || 'none'); // Load new setting
         } else {
-            // Aplica los valores predeterminados iniciales si no hay configuración guardada
+            // Apply initial defaults if no settings are saved
             setRenderer('2d');
             setGraphicsQuality('medium');
             setDifficulty('normal');
             setShaderEffect('none');
             setColorMode('rainbow');
+            setAntiAliasing('none'); // Default for new users
         }
-        updateSettingsUI(); // Asegura que la UI refleje la configuración cargada
+        updateSettingsUI(); // Ensure UI reflects loaded settings
     }
 
     // --- Event Listener Handlers ---
@@ -1956,6 +2224,11 @@
     // Adjunta oyentes a los nuevos botones de modo de color
     attachButtonListeners(elements.colorModePerRound, () => setColorMode('per_round'));
     attachButtonListeners(elements.colorModeRainbow, () => setColorMode('rainbow'));
+
+    // Attach listeners to new anti-aliasing buttons
+    attachButtonListeners(elements.antiAliasingNone, () => setAntiAliasing('none'));
+    attachButtonListeners(elements.antiAliasingMSAAx2, () => setAntiAliasing('msaa_x2'));
+    attachButtonListeners(elements.antiAliasingFXAA, () => setAntiAliasing('fxaa'));
 
     // Adjunta oyente al botón Jugar de Nuevo
     attachButtonListeners(elements.playAgainButton, () => {
