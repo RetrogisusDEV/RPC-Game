@@ -155,11 +155,26 @@
     .settings-group {
         margin-bottom: 25px;
         color: #ddd;
+        background-color: rgba(31, 31, 31, 0.7); /* Semi-transparent background */
+        padding: 20px;
+        border-radius: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        width: clamp(280px, 80vw, 500px); /* Responsive width */
+        max-width: 90%;
+        box-sizing: border-box; /* Include padding in width */
     }
     .settings-group h2 {
         font-size: clamp(1.2em, 5vw, 2.2em);
         margin-bottom: 15px;
         color: white;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .settings-options {
+        display: flex;
+        flex-wrap: wrap; /* Allow buttons to wrap to next line */
+        justify-content: center;
+        gap: 10px; /* Space between buttons */
     }
     .settings-options button {
         background-color: var(--hud-background-dark);
@@ -168,8 +183,11 @@
         padding: 8px 15px;
         border-radius: 5px;
         cursor: pointer;
-        margin: 5px;
+        margin: 0; /* Reset margin from parent */
         transition: all 0.2s ease;
+        flex-grow: 1; /* Allow buttons to grow and fill space */
+        min-width: 100px; /* Minimum width for buttons */
+        max-width: 150px; /* Max width for buttons */
     }
     .settings-options button:hover {
         background-color: #555;
@@ -178,6 +196,7 @@
         background-color: #C3F8B7; /* Active pastel green */
         color: #1a1a1a;
         border-color: var(--main-border-color); /* Consistent border color */
+        box-shadow: 0 0 8px var(--main-border-color); /* Glow for active button */
     }
 
     /* Adjustments for Settings Menu to allow scrolling */
@@ -190,6 +209,8 @@
       overflow-y: auto; /* Enable vertical scrolling */
       max-height: 90vh; /* Restrict height to enable scrolling if content overflows */
       box-sizing: border-box; /* Include padding in the height calculation */
+      align-items: center; /* Center groups horizontally */
+      gap: 20px; /* Space between setting groups */
     }
 
     /* Modal styles for custom alert */
@@ -402,6 +423,14 @@
     </div>
 
     <div class="settings-group">
+        <h2>Anti-Aliasing (Canvas 2D)</h2>
+        <div class="settings-options">
+            <button id="imageSmoothingSmooth" class="active">Suave</button>
+            <button id="imageSmoothingPixelated">Píxel</button>
+        </div>
+    </div>
+
+    <div class="settings-group">
         <h2>Anti-Aliasing (WebGL)</h2>
         <div class="settings-options">
             <button id="antiAliasingNone" class="active">Ninguno</button>
@@ -576,9 +605,11 @@
       playAgainButton: document.getElementById('playAgainButton'), // Play again button
       introAnimationText: document.getElementById('introAnimationText'), // Intro animation text
       orientationWarning: document.getElementById('orientationWarning'), // Orientation warning
-      antiAliasingNone: document.getElementById('antiAliasingNone'), // New AA button
-      antiAliasingMSAAx2: document.getElementById('antiAliasingMSAAx2'), // New AA button
-      antiAliasingFXAA: document.getElementById('antiAliasingFXAA'), // New AA button
+      imageSmoothingSmooth: document.getElementById('imageSmoothingSmooth'), // New 2D AA button
+      imageSmoothingPixelated: document.getElementById('imageSmoothingPixelated'), // New 2D AA button
+      antiAliasingNone: document.getElementById('antiAliasingNone'), // New WebGL AA button
+      antiAliasingMSAAx2: document.getElementById('antiAliasingMSAAx2'), // New WebGL AA button
+      antiAliasingFXAA: document.getElementById('antiAliasingFXAA'), // New WebGL AA button
     };
 
     // --- Game State ---
@@ -612,7 +643,8 @@
       introAnimationStartTime: 0, // For intro animation
       finalScoreValue: 0, // Store final score for score screen
       finalAccuracyValue: 0, // Store final accuracy for score screen
-      currentAntiAliasing: 'none', // 'none', 'msaa_x2', 'fxaa'
+      imageSmoothingEnabled: true, // Default for 2D anti-aliasing
+      currentAntiAliasing: 'none', // 'none', 'msaa_x2', 'fxaa' for WebGL
     };
 
     // --- WebGL Data ---
@@ -851,7 +883,6 @@
         if (accuracyPercentage >= 90) return 'A';
         if (accuracyPercentage >= 80) return 'B';
         if (accuracyPercentage >= 70) return 'C';
-        if (accuracyPercentage >= 60) return 'D';
         return 'E';
     }
 
@@ -1891,6 +1922,9 @@
             ctx = null; // We are no longer using 2D context
         } else {
             ctx = canvas.getContext('2d');
+            // Apply 2D anti-aliasing setting
+            ctx.imageSmoothingEnabled = gameState.imageSmoothingEnabled;
+
             // If switching from WebGL, ensure to clean up WebGL resources
             if (gl) {
                 if (webglData.msaaFramebuffer) gl.deleteFramebuffer(webglData.msaaFramebuffer);
@@ -1964,6 +1998,19 @@
     }
 
     /**
+     * Establece el modo de anti-aliasing para Canvas 2D.
+     * @param {boolean} enabled - Verdadero para anti-aliasing suave, falso para pixelado.
+     */
+    function setImageSmoothing(enabled) {
+        gameState.imageSmoothingEnabled = enabled;
+        if (gameState.currentRenderer === '2d' && ctx) {
+            ctx.imageSmoothingEnabled = enabled;
+        }
+        updateSettingsUI();
+        saveSettings();
+    }
+
+    /**
      * Establece el modo de anti-aliasing para WebGL.
      * @param {string} mode - El modo de anti-aliasing a activar ('none', 'msaa_x2', 'fxaa').
      */
@@ -2012,7 +2059,11 @@
         elements.colorModePerRound.classList.toggle('active', gameState.colorMode === 'per_round');
         elements.colorModeRainbow.classList.toggle('active', gameState.colorMode === 'rainbow');
 
-        // Anti-Aliasing buttons
+        // 2D Anti-Aliasing buttons
+        elements.imageSmoothingSmooth.classList.toggle('active', gameState.imageSmoothingEnabled === true);
+        elements.imageSmoothingPixelated.classList.toggle('active', gameState.imageSmoothingEnabled === false);
+
+        // WebGL Anti-Aliasing buttons
         elements.antiAliasingNone.classList.toggle('active', gameState.currentAntiAliasing === 'none');
         elements.antiAliasingMSAAx2.classList.toggle('active', gameState.currentAntiAliasing === 'msaa_x2');
         elements.antiAliasingFXAA.classList.toggle('active', gameState.currentAntiAliasing === 'fxaa');
@@ -2037,7 +2088,8 @@
             difficulty: gameState.currentDifficulty,
             shader: gameState.activeShader,
             colorMode: gameState.colorMode,
-            antiAliasing: gameState.currentAntiAliasing // Save new setting
+            imageSmoothingEnabled: gameState.imageSmoothingEnabled, // Save new 2D AA setting
+            antiAliasing: gameState.currentAntiAliasing // Save WebGL AA setting
         };
         localStorage.setItem('rpcgSettings', JSON.stringify(settings));
     }
@@ -2048,14 +2100,16 @@
         if (savedSettings) {
             const settings = JSON.parse(savedSettings);
             // Aplica la configuración cargada, asegurando los valores predeterminados si falta una configuración
-            setRenderer(settings.renderer || '2d');
+            setImageSmoothing(settings.imageSmoothingEnabled !== undefined ? settings.imageSmoothingEnabled : true); // Load 2D AA setting first
+            setRenderer(settings.renderer || '2d'); // This will apply imageSmoothingEnabled if 2D
             setGraphicsQuality(settings.graphics || 'medium');
             setDifficulty(settings.difficulty || 'normal');
             setShaderEffect(settings.shader || 'none');
             setColorMode(settings.colorMode || 'rainbow');
-            setAntiAliasing(settings.antiAliasing || 'none'); // Load new setting
+            setAntiAliasing(settings.antiAliasing || 'none'); // Load WebGL AA setting
         } else {
             // Apply initial defaults if no settings are saved
+            setImageSmoothing(true); // Default for 2D anti-aliasing
             setRenderer('2d');
             setGraphicsQuality('medium');
             setDifficulty('normal');
@@ -2225,7 +2279,11 @@
     attachButtonListeners(elements.colorModePerRound, () => setColorMode('per_round'));
     attachButtonListeners(elements.colorModeRainbow, () => setColorMode('rainbow'));
 
-    // Attach listeners to new anti-aliasing buttons
+    // Adjunta oyentes a los nuevos botones de anti-aliasing 2D
+    attachButtonListeners(elements.imageSmoothingSmooth, () => setImageSmoothing(true));
+    attachButtonListeners(elements.imageSmoothingPixelated, () => setImageSmoothing(false));
+
+    // Attach listeners to WebGL anti-aliasing buttons
     attachButtonListeners(elements.antiAliasingNone, () => setAntiAliasing('none'));
     attachButtonListeners(elements.antiAliasingMSAAx2, () => setAntiAliasing('msaa_x2'));
     attachButtonListeners(elements.antiAliasingFXAA, () => setAntiAliasing('fxaa'));
