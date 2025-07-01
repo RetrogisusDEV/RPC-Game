@@ -927,6 +927,17 @@
         updateHUD();
     }
 
+    /** Reinicia el juego, pasando por la animación de introducción. */
+    function restartGame() {
+        elements.pauseMenu.classList.add('hidden');
+        elements.scoreScreen.classList.add('hidden');
+        elements.introAnimationText.classList.remove('hidden');
+        elements.introAnimationText.classList.add('animate-intro'); // Inicia la animación
+        gameState.phase = 'introAnimation';
+        gameState.introAnimationStartTime = gameState.globalTime;
+        // La lógica de inicio del juego (resetGameStats, startRound) se manejará después de que la animación de introducción se complete
+    }
+
 
     function checkHit() {
       const currentAngle = (gameState.player.angle % 360 + 360) % 360; // Calcula el ángulo actual una vez
@@ -1596,7 +1607,7 @@
         if (success) {
             return shader;
         }
-        console.error('Error de compilación de shader:', gl.getShaderInfoLog(shader));
+        console.error('Error compiling shader:', gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
         return undefined;
     }
@@ -1610,7 +1621,7 @@
         if (success) {
             return program;
         }
-        console.error('Error de enlace de programa:', gl.getProgramInfoLog(program));
+        console.error('Error linking program:', gl.getProgramInfoLog(program));
         gl.deleteProgram(program);
         return undefined;
     }
@@ -1625,12 +1636,42 @@
             return false;
         }
 
+        // Add context loss/restore listeners
+        gl.canvas.addEventListener('webglcontextlost', (event) => {
+            event.preventDefault();
+            console.warn('WebGL context lost. Attempting to restore...');
+            // Stop rendering loop or pause game
+            gameState.phase = 'paused'; // Or a specific 'contextLost' phase
+            elements.pauseMenu.classList.remove('hidden');
+            customAlert('Advertencia', 'El contexto WebGL se ha perdido. Intentando restaurar...');
+        }, false);
+
+        gl.canvas.addEventListener('webglcontextrestored', () => {
+            console.log('WebGL context restored. Re-initializing...');
+            // Re-initialize all WebGL resources
+            initWebGL(); // Re-run initWebGL to recreate all shaders, programs, buffers, textures
+            // Resume game or return to previous state
+            if (gameState.phase === 'paused') { // Only if paused due to context loss
+                gameState.phase = 'playing';
+                elements.pauseMenu.classList.add('hidden');
+            }
+            customAlert('Información', 'El contexto WebGL ha sido restaurado.');
+        });
+
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-        if (!vertexShader || !fragmentShader) return false;
+        if (!vertexShader || !fragmentShader) {
+            customAlert('Error', 'Falló la compilación de shaders WebGL. Volviendo a Canvas 2D.');
+            setRenderer('2d');
+            return false;
+        }
 
         webglData.program = createProgram(gl, vertexShader, fragmentShader);
-        if (!webglData.program) return false;
+        if (!webglData.program) {
+            customAlert('Error', 'Falló el enlace del programa WebGL. Volviendo a Canvas 2D.');
+            setRenderer('2d');
+            return false;
+        }
 
         webglData.positionAttributeLocation = gl.getAttribLocation(webglData.program, "a_position");
         webglData.resolutionUniformLocation = gl.getUniformLocation(webglData.program, "u_resolution");
@@ -1706,10 +1747,18 @@
             // Initialize FXAA shaders
             const fxaaVertexShader = createShader(gl, gl.VERTEX_SHADER, fxaaVertexShaderSource);
             const fxaaFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fxaaFragmentShaderSource);
-            if (!fxaaVertexShader || !fxaaFragmentShader) return false;
+            if (!fxaaVertexShader || !fxaaFragmentShader) {
+                customAlert('Error', 'Falló la compilación de shaders FXAA. Volviendo a sin Anti-Aliasing.');
+                gameState.currentAntiAliasing = 'none';
+                return initWebGL(); // Re-initialize without FXAA
+            }
 
             webglData.fxaaProgram = createProgram(gl, fxaaVertexShader, fxaaFragmentShader);
-            if (!webglData.fxaaProgram) return false;
+            if (!webglData.fxaaProgram) {
+                customAlert('Error', 'Falló el enlace del programa FXAA. Volviendo a sin Anti-Aliasing.');
+                gameState.currentAntiAliasing = 'none';
+                return initWebGL(); // Re-initialize without FXAA
+            }
 
             webglData.fxaaPositionLocation = gl.getAttribLocation(webglData.fxaaProgram, "a_position");
             webglData.fxaaResolutionUniform = gl.getUniformLocation(webglData.fxaaProgram, "u_resolution");
@@ -2264,12 +2313,7 @@
         elements.pauseMenu.classList.add('hidden');
     });
     attachButtonListeners(elements.restartButton, () => {
-        elements.pauseMenu.classList.add('hidden');
-        elements.scoreScreen.classList.add('hidden'); // Oculta la pantalla de puntuación si se reinicia desde allí
-        elements.introAnimationText.classList.remove('hidden'); // Muestra el texto de introducción de nuevo
-        elements.introAnimationText.classList.add('animate-intro'); // Inicia la animación
-        gameState.phase = 'introAnimation'; // Pasa por la animación de introducción de nuevo
-        gameState.introAnimationStartTime = gameState.globalTime;
+        restartGame(); // Use the new restartGame function
     });
     attachButtonListeners(elements.exitToMenuButton, () => {
         elements.pauseMenu.classList.add('hidden');
