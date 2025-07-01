@@ -653,6 +653,9 @@
       finalAccuracyValue: 0, // Store final accuracy for score screen
       imageSmoothingEnabled: true, // Default for 2D anti-aliasing
       currentAntiAliasing: 'none', // 'none', 'msaa_x2', 'fxaa' for WebGL
+      lastColorChangeAngle: 0, // New: Tracks the angle at which the color last changed for rainbow mode
+      rotationsCompletedThisRound: 0, // New: Tracks full 360-degree rotations in current round
+      lastCheckedRotationAngle: 0, // New: To track angle for rotation completion
     };
 
     // --- WebGL Data ---
@@ -765,9 +768,9 @@
     }
 
     /** Actualiza el índice de color actual para ciclar a través de los colores pastel. */
+    // This function is no longer called by setInterval. Color update is now tied to player rotation.
     function updatePsychedelicColors() {
-      // Esta función solo será llamada por setInterval si colorMode es 'rainbow'
-      currentColorIndex = (currentColorIndex + 1) % PASTEL_COLORS.length;
+      // This function is now a placeholder. The logic has moved to updatePlayer.
     }
 
     /** Inicializa (o reinicializa) los cuadrados y líneas de fondo. */
@@ -863,6 +866,9 @@
       gameState.player.angle = 0;
       gameState.player.trail = [];
       gameState.currentRoundIndex = roundIndex;
+      gameState.lastColorChangeAngle = 0; // Reset for new round
+      gameState.rotationsCompletedThisRound = 0; // Reset rotations for new round
+      gameState.lastCheckedRotationAngle = 0; // Reset last checked angle for new round
 
       // Si el modo de color es "Por Ronda", establece el color una vez para la ronda
       if (gameState.colorMode === 'per_round') {
@@ -924,6 +930,8 @@
         nextAvailableHitTextIndex = 0;
         nextAvailableComboTextIndex = 0;
         nextAvailableRoundCompleteTextIndex = 0;
+        gameState.rotationsCompletedThisRound = 0; // Reset rotations
+        gameState.lastCheckedRotationAngle = 0; // Reset last checked angle
         updateHUD();
     }
 
@@ -992,12 +1000,13 @@
 
       updateHUD();
 
-      const allMarkersHit = gameState.activeMarkers.every(marker => marker.hit);
-      if (allMarkersHit) {
-        createRoundCompleteText(`RONDA ${gameState.currentRoundIndex + 1} COMPLETADA!`, PASTEL_COLORS[currentColorIndex]);
-        gameState.phase = 'roundComplete';
-        gameState.nextRoundStartTime = gameState.globalTime + 2000; // 2 segundos de retraso
-      }
+      // Round completion is now handled by rotation, not individual marker hits.
+      // const allMarkersHit = gameState.activeMarkers.every(marker => marker.hit);
+      // if (allMarkersHit) {
+      //   createRoundCompleteText(`RONDA ${gameState.currentRoundIndex + 1} COMPLETADA!`, PASTEL_COLORS[currentColorIndex]);
+      //   gameState.phase = 'roundComplete';
+      //   gameState.nextRoundStartTime = gameState.globalTime + 2000; // 2 segundos de retraso
+      // }
     }
 
     /**
@@ -1266,8 +1275,34 @@
 
       // Lógica de BPM: Cada BPM ahora equivale a media rotación de círculo (180 grados)
       const degreesPerBeat = 180 / round.beatsPerRotation;
-      gameState.player.angle += (degreesPerBeat * (round.bpm / 60)) * (deltaTime / 1000);
+      const angleIncrease = (degreesPerBeat * (round.bpm / 60)) * (deltaTime / 1000);
+      const previousAngle = gameState.player.angle;
+      gameState.player.angle += angleIncrease;
 
+      // Update rainbow color based on player angle
+      if (gameState.colorMode === 'rainbow') {
+        // Calculate the number of full color cycles per full player rotation
+        // For example, if PASTEL_COLORS.length is 6, and we want 1 cycle per 360 degrees,
+        // then each color should last 360 / 6 = 60 degrees.
+        const anglePerColor = 360 / PASTEL_COLORS.length;
+        const currentAngleNormalized = (gameState.player.angle % 360 + 360) % 360;
+        const lastAngleNormalized = (gameState.lastColorChangeAngle % 360 + 360) % 360;
+
+        // Check if we crossed a color boundary
+        if (Math.floor(currentAngleNormalized / anglePerColor) !== Math.floor(lastAngleNormalized / anglePerColor)) {
+            currentColorIndex = Math.floor(currentAngleNormalized / anglePerColor) % PASTEL_COLORS.length;
+        }
+        gameState.lastColorChangeAngle = gameState.player.angle;
+      }
+
+      // Check for full rotations to advance round
+      const currentTotalRotations = Math.floor(gameState.player.angle / 360);
+      const lastTotalRotations = Math.floor(previousAngle / 360);
+
+      if (currentTotalRotations > lastTotalRotations) {
+          gameState.rotationsCompletedThisRound += (currentTotalRotations - lastTotalRotations);
+      }
+      
       gameState.player.trail.push({
         angle: gameState.player.angle,
         alpha: 1,
@@ -1477,9 +1512,9 @@
         
         const glowBlur = 0.5; // Desenfoque reducido para un brillo de movimiento mínimo
 
-        // Anima el desplazamiento para la aberración cromática
-        // Oscila entre -2 y 2, para un efecto más pronunciado
-        const animatedOffset = Math.sin(gameState.globalTime * 0.002) * 2; 
+        // Anima el desplazamiento para la aberración cromática basado en el ángulo del jugador
+        // Multiplicado por 1.0 para que oscile una vez por rotación del jugador
+        const animatedOffset = Math.sin(gameState.player.angle * DEG_TO_RAD * 1.0) * 2; 
 
         // Dibuja capas con efectos
         const layers = [
@@ -1918,16 +1953,11 @@
         // Renderiza los elementos del juego según la fase actual
         if (gameState.phase === 'playing') {
           drawCoreGameElements2D(deltaTime);
-        } else if (gameState.phase === 'roundComplete') {
-          drawCoreGameElements2D(deltaTime);
-          
-          // Verifica si es hora de iniciar la siguiente ronda
-          if (gameState.globalTime >= gameState.nextRoundStartTime) {
-            gameState.currentRoundIndex++;
-            startRound(gameState.currentRoundIndex); // Llama a showScoreScreen si todas las rondas están hechas
-            if (gameState.phase !== 'scoreScreen') { // Solo establece como jugando si no está en transición a la pantalla de puntuación
-                gameState.phase = 'playing';
-            }
+          // Check for round completion based on full rotations
+          if (gameState.rotationsCompletedThisRound >= 1) { // One full rotation
+              createRoundCompleteText(`RONDA ${gameState.currentRoundIndex + 1} COMPLETADA!`, PASTEL_COLORS[currentColorIndex]);
+              gameState.currentRoundIndex++;
+              startRound(gameState.currentRoundIndex); // This will handle ending the game if all rounds are done
           }
         } else if (gameState.phase === 'paused' || gameState.phase === 'ended') {
             // Cuando está en pausa o finalizado, dibuja los elementos estáticos del juego (sin actualizaciones para la lógica central del juego,
@@ -2058,15 +2088,8 @@
      */
     function setColorMode(mode) {
         gameState.colorMode = mode;
-        if (mode === 'rainbow') {
-            if (!colorUpdateIntervalId) { // Solo inicia si aún no está en ejecución
-                colorUpdateIntervalId = setInterval(updatePsychedelicColors, 700);
-            }
-        } else {
-            clearInterval(colorUpdateIntervalId); // Detiene el cambio automático de color
-            colorUpdateIntervalId = null;
-            // Para 'per_round' o 'monochromatic', el color se establece en startRound() o getCurrentRenderColor()
-        }
+        // The setInterval for rainbow mode is removed as color updates are now tied to player rotation.
+        // No need to clear interval here.
         updateSettingsUI(); // Actualiza el botón activo en la UI
         saveSettings(); // Guarda la configuración después del cambio
     }
